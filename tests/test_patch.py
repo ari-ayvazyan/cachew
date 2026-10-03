@@ -16,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fake_anthropic import FakeAnthropic  # noqa: E402
+from cachew.fake_api import FakeAnthropic  # noqa: E402
 from omnigent.llms.adapters import anthropic as adapter_mod  # noqa: E402
 
 from cachew import patch  # noqa: E402

@@ -68,7 +68,7 @@ call and the sub-agent message layout above.
 .venv/Scripts/python.exe -m unittest discover -s tests -v
 ```
 
-10 tests against [tests/fake_anthropic.py](tests/fake_anthropic.py), a stand-in
+10 tests against [cachew/fake_api.py](cachew/fake_api.py), a stand-in
 for `/v1/messages` that implements the documented caching rules (exact-prefix
 keys, entry readable only after prefill starts, minimum cacheable size).
 They check breakpoint placement, usage pass-through, that 8 concurrent
@@ -139,3 +139,20 @@ Runs the four arms through Omnigent's real adapter against the API and writes
 `results/live_report.md` plus `results/live_results.json` with every request's
 `usage`. Exits non-zero if any cached arm failed to read from cache. Costs
 roughly $1–3 on Opus 5.5 (`--model claude-sonnet-5-5` halves it).
+
+## Research loop (`lab/`)
+
+A domain-agnostic research loop built on top of Cachew:
+
+- competing hypotheses, including "none of these is right";
+- tests chosen by expected information gain per dollar;
+- a skeptic that audits every run from its raw data;
+- a judge, separate from the proposer, whose every decision cites run IDs;
+- an interactive progress board showing where time and tokens go.
+
+Design: [docs/research-loop.md](docs/research-loop.md). Studies:
+[studies/](studies/README.md).
+
+```bash
+.venv/Scripts/python.exe -m lab --study studies/003-my-run
+```
