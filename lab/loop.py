@@ -34,7 +34,8 @@ from lab.store import Store
 
 class Study:
     def __init__(self, domain: ModuleType, root: Path, *, max_rounds: int = 8, resolve_at: float = 0.95,
-                 refute_below: float = 0.02, confirm_after: int = 2, min_eig: float = 0.01) -> None:
+                 refute_below: float = 0.02, confirm_after: int = 2, min_eig: float = 0.01, pace: float = 0.0) -> None:
+        self.pace = pace  # seconds to pause after each step, so the board can be watched live
         self.d = domain
         self.store = Store(root)
         self.rules = {"max_rounds": max_rounds, "resolve_at": resolve_at, "refute_below": refute_below,
@@ -69,6 +70,8 @@ class Study:
         t = time.perf_counter()
         board.render(self.store, self.d)
         self.store.log({"event": "role", "role": "board", "round": self.store.meta().get("round", 0), "s": round(time.perf_counter() - t, 4)})
+        if self.pace:
+            time.sleep(self.pace)
 
     # -- setup -----------------------------------------------------------------
     def setup(self, fresh: bool = False) -> None:
