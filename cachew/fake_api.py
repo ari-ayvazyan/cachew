@@ -87,12 +87,14 @@ class FakeAnthropic:
                 break
         created = 0
         prev = read
+        written: list[str] = []
         for key, tokens in breakpoints[hit_index + 1 :]:
             if tokens < self.min_tokens:
                 continue
             created += tokens - prev
             prev = tokens
             self.entries.setdefault(key, started + self.prefill_s)
+            written.append(key)
 
         max_tokens = payload.get("max_tokens", 0)
         out_tokens = 0 if max_tokens == 0 else self.output_tokens
@@ -102,8 +104,15 @@ class FakeAnthropic:
             "cache_read_input_tokens": read,
             "output_tokens": out_tokens,
         }
-        self.requests.append({"payload": payload, "usage": usage, "prewarm": max_tokens == 0})
+        record = {"payload": payload, "usage": usage, "prewarm": max_tokens == 0, "t0": started}
+        self.requests.append(record)
         await asyncio.sleep(self.prefill_s if max_tokens == 0 else self.latency_s)
+        # Once a response is back, its entries are readable. asyncio.sleep can
+        # wake up to one clock tick early (15.6 ms on Windows), so without this
+        # a pre-warm could return before its own entry became readable.
+        now = record["t1"] = time.monotonic()
+        for key in written:
+            self.entries[key] = min(self.entries[key], now)
         return httpx.Response(
             200,
             json={

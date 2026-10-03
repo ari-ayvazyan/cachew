@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{REFRESH}}
+<title>Research Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --panel2: #faf9f6; --ink: #1b1a17; --ink2: #4a4741; --mute: #8a857b; --line: #e8e4dc; --grid: #efebe4;
+  --accent: #c2410c; --good: #15803d; --bad: #dc2626;
+  --t-uncached: #a8a29e; --t-write: #f59e0b; --t-read: #10b981; --t-output: #6366f1;
+  --r-proposer: #8b5cf6; --r-selector: #3b82f6; --r-runner: #f97316; --r-skeptic: #ef4444; --r-judge: #10b981; --r-board: #a8a29e;
+  --shadow: 0 1px 2px rgba(20,18,14,.04), 0 4px 16px rgba(20,18,14,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111110; --panel: #1a1917; --panel2: #201f1c; --ink: #f1efe9; --ink2: #c9c5bc; --mute: #8f8a80; --line: #2c2a26; --grid: #24221f;
+    --accent: #fb923c; --good: #34d399; --bad: #f87171; --t-uncached: #78716c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111110; --panel: #1a1917; --panel2: #201f1c; --ink: #f1efe9; --ink2: #c9c5bc; --mute: #8f8a80; --line: #2c2a26; --grid: #24221f;
+  --accent: #fb923c; --good: #34d399; --bad: #f87171; --t-uncached: #78716c;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
+.mono, .id, .num { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
+.num { font-variant-numeric: tabular-nums; }
+main { max-width: 1320px; margin: 0 auto; padding: 22px 16px 80px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
+h1 { font-size: 22px; line-height: 1.2; margin: 4px 0 0; font-weight: 700; letter-spacing: -.01em; }
+.now { color: var(--ink2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; background: var(--panel); border: 1px solid var(--line); }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.pill.resolved i { background: var(--good); } .pill.running i { animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+button.theme { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); border-radius: 8px; padding: 4px 8px; cursor: pointer; font: inherit; }
+
+.kpis { display: grid; grid-template-columns: 1.6fr 1fr 1.2fr 1.2fr 1fr; gap: 12px; margin-bottom: 14px; }
+@media (max-width: 1000px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis .verdict { grid-column: 1 / -1; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.kpi .lbl { font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+.kpi .big { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 8px; line-height: 1.1; }
+.kpi .big small { font-size: 12px; font-weight: 500; color: var(--mute); letter-spacing: 0; }
+.kpi .sub { color: var(--ink2); font-size: 12px; }
+.stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--grid); }
+.stack span { display: block; height: 100%; }
+.keys { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 7px; font-size: 11px; color: var(--mute); }
+.keys b { color: var(--ink2); font-weight: 600; }
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+.rounds { display: flex; gap: 4px; flex-wrap: wrap; }
+.rounds span { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; cursor: pointer; }
+
+.row { display: grid; gap: 14px; margin-bottom: 14px; }
+.row.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .row.two { grid-template-columns: minmax(0, 1fr); } }
+h2 { font-size: 13px; margin: 0; font-weight: 700; }
+.ch { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.ch .hint { color: var(--mute); font-size: 11px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font: 10px "JetBrains Mono", ui-monospace, monospace; fill: var(--mute); }
+.seg { cursor: pointer; transition: opacity .12s; }
+.seg:hover { opacity: .8; }
+.hl { stroke: var(--ink); stroke-width: 1.5; }
+
+.legend-h { display: grid; gap: 4px; margin-top: 10px; }
+.lh { display: grid; grid-template-columns: 12px 50px 1fr 44px; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
+.lh:hover, .lh.on { background: var(--panel2); }
+.lh .c { width: 10px; height: 10px; border-radius: 3px; }
+.lh.ref .t { color: var(--mute); text-decoration: line-through; }
+.lh .w { text-align: right; font-weight: 600; }
+
+.seg-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-ctl button { border: 0; background: transparent; color: var(--ink2); padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+.seg-ctl button.on { background: var(--ink); color: var(--panel); }
+.matrix { display: grid; gap: 6px 10px; align-items: center; overflow-x: auto; }
+.matrix .hd { font-size: 11px; color: var(--mute); font-weight: 600; }
+.mrow { display: contents; cursor: pointer; }
+.mrow > * { padding: 4px 0; }
+.mrow.sel .rl { color: var(--accent); }
+.rl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell { display: grid; grid-template-columns: 1fr 62px; gap: 6px; align-items: center; }
+.cell .stack { height: 12px; }
+.cell .v { white-space: nowrap; text-align: right; font-size: 11px; color: var(--ink2); }
+.cell.win .v { color: var(--good); font-weight: 700; }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 700; background: var(--panel2); border: 1px solid var(--line); color: var(--ink2); }
+.badge.ok { color: var(--good); } .badge.no { color: var(--bad); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); border-radius: 999px; padding: 3px 10px; cursor: pointer; font: 600 11px "JetBrains Mono", monospace; display: inline-flex; align-items: center; gap: 6px; }
+.chip i { width: 7px; height: 7px; border-radius: 50%; }
+.chip.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.runmeta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 12px 0 6px; color: var(--ink2); }
+.runmeta .t { font-size: 15px; font-weight: 700; color: var(--ink); }
+.cands { display: grid; gap: 3px; margin: 6px 0 12px; }
+.cand { display: grid; grid-template-columns: 54px 150px minmax(0, 1fr) 150px; gap: 8px; align-items: center; font-size: 11px; color: var(--mute); }
+.cand.pick { color: var(--ink); font-weight: 600; }
+.cand .eb { height: 6px; border-radius: 3px; background: var(--r-selector); opacity: .35; }
+.cand.pick .eb { opacity: 1; }
+.gantt-lane { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--grid); }
+.gantt-lane .n { font-weight: 600; }
+.gantt-lane.win .n { color: var(--good); }
+.gantt-lane .s { text-align: right; font-size: 11px; color: var(--ink2); line-height: 1.35; }
+.req { cursor: pointer; }
+.req:hover { filter: brightness(1.15); }
+.req.sel { stroke: var(--ink); stroke-width: 1.5; }
+
+.steps { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
+.steps li { display: grid; grid-template-columns: 10px 64px minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 4px; border-bottom: 1px solid var(--grid); }
+.steps li .d { width: 8px; height: 8px; border-radius: 50%; }
+.steps li .l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink2); }
+.steps li .r { font-size: 10px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; }
+.id { color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 600; }
+.id:hover { text-decoration: underline; }
+
+#tip { position: fixed; pointer-events: none; z-index: 30; background: var(--ink); color: var(--panel); padding: 7px 9px; border-radius: 8px; font-size: 11px; line-height: 1.4; max-width: 280px; opacity: 0; transition: opacity .08s; box-shadow: var(--shadow); }
+#tip b { font-weight: 700; }
+#insp { visibility: hidden; position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(0,0,0,.12); transform: translateX(105%); transition: transform .18s ease; z-index: 20; display: flex; flex-direction: column; }
+#insp.open { transform: none; visibility: visible; }
+#insp .hd { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+#insp .hd b { font-size: 14px; }
+#insp .x { border: 0; background: none; color: var(--mute); font-size: 20px; cursor: pointer; }
+#insp pre { margin: 0; padding: 14px 16px; overflow: auto; font: 11px/1.5 "JetBrains Mono", ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; color: var(--ink2); }
+#insp .back { margin: 8px 16px 0; align-self: flex-start; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="q"></h1>
+    </div>
+    <div class="now"><span id="pill" class="pill"><i></i><span></span></span><span id="phase"></span><button class="theme" id="theme" aria-label="Toggle theme">◐</button></div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="row two">
+    <div class="card">
+      <div class="ch"><h2>Where time goes</h2><span class="hint">per round · by role · click a bar</span></div>
+      <div id="timechart"></div>
+      <div class="keys" id="rolekeys"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><h2>Beliefs over runs</h2><span class="hint">hover a line · click to inspect</span></div>
+      <div id="belief"></div>
+      <div class="legend-h" id="hlegend"></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="card">
+      <div class="ch"><h2>Where tokens go</h2><div class="seg-ctl" id="unit"><button data-u="tok" class="on">tokens</button><button data-u="usd">$</button></div></div>
+      <div class="matrix" id="matrix"></div>
+      <div class="keys" id="tokkeys"></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="card">
+      <div class="ch"><h2>Fan-out</h2><div class="chips" id="runchips"></div></div>
+      <div id="rundetail"></div>
+    </div>
+  </section>
+
+  <section class="row">
+    <div class="card">
+      <div class="ch"><h2>Steps</h2><div class="chips" id="rolefilter"></div></div>
+      <ul class="steps" id="steps"></ul>
+    </div>
+  </section>
+</main>
+<div id="tip"></div>
+<aside id="insp" aria-label="Inspector"><div class="hd"><b id="insp-t"></b><button class="x" aria-label="Close">×</button></div><pre id="insp-b"></pre></aside>
+
+<script>
+const D = {{DATA}};
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const ids = (s) => esc(s).replace(/\b((?:HO|[SHTXRKD])-\d{3})\b/g, '<span class="id" data-id="$1">$1</span>');
+const fmtT = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + "K" : String(Math.round(n));
+const fmtS = (s) => s >= 60 ? (s / 60).toFixed(1) + "m" : s >= 1 ? s.toFixed(1) + "s" : Math.round(s * 1000) + "ms";
+const fmtUsd = (u) => "$" + (u >= 1 ? u.toFixed(2) : u.toFixed(4));
+const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
+const css = (v) => `var(--${v})`;
+const ROLES = ["proposer", "selector", "runner", "skeptic", "judge", "board"];
+const TOK = Object.keys(D.token_legend).length ? Object.keys(D.token_legend) : Object.keys(D.tokens);
+const HCOL = ["#c2410c", "#2563eb", "#9333ea", "#0891b2", "#a3a3a3", "#16a34a", "#db2777", "#ca8a04"];
+const hyps = D.hypotheses;
+const hcol = (id) => HCOL[hyps.findIndex((h) => h.id === id) % HCOL.length];
+const state = { run: null, unit: "tok", roles: new Set(ROLES), hyp: null };
+try { const h = location.hash.slice(1); if (D.runs.some((r) => r.id === h)) state.run = h; } catch (e) {}
+if (!state.run && D.runs.length) state.run = D.runs[D.runs.length - 1].id;
+
+/* ---------- tooltip + inspector ---------- */
+const tip = $("#tip");
+function showTip(e, html) { tip.innerHTML = html; tip.style.opacity = 1; moveTip(e); }
+function moveTip(e) { const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY + 14; if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = e.clientY - h - 14; tip.style.left = x + "px"; tip.style.top = y + "px"; }
+function hideTip() { tip.style.opacity = 0; }
+document.addEventListener("mousemove", (e) => { const t = e.target.closest("[data-tip]"); if (t) showTip(e, t.dataset.tip); else hideTip(); });
+function inspect(title, obj) { $("#insp-t").innerHTML = ids(title); $("#insp-b").innerHTML = ids(JSON.stringify(obj, null, 1)); $("#insp").classList.add("open"); }
+$("#insp .x").onclick = () => $("#insp").classList.remove("open");
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#insp").classList.remove("open"); });
+document.addEventListener("click", (e) => { const t = e.target.closest(".id"); if (t && D.artifacts[t.dataset.id]) { e.stopPropagation(); inspect(t.dataset.id, D.artifacts[t.dataset.id]); } });
+$("#theme").onclick = () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme = dark ? "light" : "dark"; };
+
+/* ---------- header ---------- */
+const m = D.meta;
+$("#eyebrow").textContent = `Research board · ${m.domain}`;
+$("#q").textContent = m.question;
+const stopped = String(m.status || "");
+const pill = $("#pill");
+pill.classList.add(stopped.includes("resolved") && !stopped.includes("unresolved") ? "resolved" : stopped === "running" ? "running" : "x");
+$("span", pill).textContent = stopped.replace("stopped: ", "");
+$("#phase").innerHTML = ids(m.phase || "");
+
+/* ---------- KPIs ---------- */
+function stackBar(parts, colorOf) { const t = sum(parts) || 1; return `<div class="stack">${Object.entries(parts).filter(([, v]) => v > 0).map(([k, v]) => `<span style="width:${(v / t) * 100}%;background:${colorOf(k)}" data-tip="<b>${esc(k)}</b> ${esc(fmtT(v))} · ${((v / t) * 100).toFixed(0)}%"></span>`).join("")}</div>`; }
+function kpis() {
+  const leader = Object.entries(D.beliefs).sort((a, b) => b[1] - a[1])[0];
+  const lh = leader && hyps.find((h) => h.id === leader[0]);
+  const reviews = Object.values(D.artifacts).filter((a) => a.id.startsWith("K-"));
+  const pass = reviews.filter((k) => k.pass).length;
+  const totalS = sum(D.time_by_role);
+  const resolved = stopped.includes("resolved") && !stopped.includes("unresolved");
+  const roleParts = Object.fromEntries(ROLES.filter((r) => D.time_by_role[r]).map((r) => [r, D.time_by_role[r]]));
+  const liveUsd = Object.values(D.artifacts).filter((a) => a.id.startsWith("D-") && a.kind === "select").reduce((s, d) => s + (d.table.find((r) => r.T === d.picked)?.usd || 0), 0);
+  const roundsHtml = D.runs.map((r) => `<span style="background:${r.pass ? "var(--good)" : "var(--bad)"}" data-run="${r.id}" data-tip="<b>${r.id}</b> ${esc(r.test)}<br>→ ${esc(r.outcome)} · ${r.pass ? "accepted" : "discarded"}">${r.id.slice(-1)}</span>`).join("");
+  $("#kpis").innerHTML = `
+    <div class="card kpi verdict"><div class="lbl">${resolved ? "Verdict" : "Leading · not resolved"}</div>
+      <div class="big">${lh ? `<span class="id" data-id="${lh.id}" style="font-size:22px">${lh.id}</span> ${(leader[1] * 100).toFixed(0)}<small>%</small>` : "—"}</div>
+      <div class="sub">${esc(lh ? lh.claim : "no runs yet")}</div>
+      <div class="sub" style="margin-top:6px;color:var(--mute)">${hyps.filter((h) => h.status === "refuted").length} of ${hyps.length} hypotheses refuted</div></div>
+    <div class="card kpi"><div class="lbl">Runs</div>
+      <div class="big num">${pass} <small>✓ accepted</small> ${reviews.length - pass} <small>✗ discarded</small></div>
+      <div class="rounds">${roundsHtml}</div></div>
+    <div class="card kpi"><div class="lbl">Time</div>
+      <div class="big num">${totalS ? fmtS(totalS) : "—"} <small>${totalS ? "loop wall" : "not recorded"}</small></div>
+      ${stackBar(roleParts, (k) => css("r-" + k))}
+      <div class="keys">${Object.entries(roleParts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `<span><i class="sw" style="background:${css("r-" + k)}"></i>${k} <b>${((v / totalS) * 100).toFixed(0)}%</b></span>`).join("")}</div></div>
+    <div class="card kpi"><div class="lbl">Tokens</div>
+      <div class="big num">${fmtT(sum(D.tokens))} <small>simulated</small></div>
+      ${stackBar(D.tokens, (k) => css("t-" + k))}
+      <div class="keys">${TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
+    <div class="card kpi"><div class="lbl">Live-API cost</div>
+      <div class="big num">${fmtUsd(liveUsd)}</div>
+      <div class="sub">what the selected tests would cost on the real API</div></div>`;
+}
+
+/* ---------- time by round ---------- */
+function timeChart() {
+  const rounds = {};
+  for (const e of D.timeline) { (rounds[e.round] ??= {})[e.role] = ((rounds[e.round] ?? {})[e.role] || 0) + e.s; }
+  const keys = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  const max = Math.max(...keys.map((k) => sum(rounds[k])), 0.001);
+  const W = 560, rowH = 22, padL = 30, padR = 50, H = keys.length * rowH + 22;
+  const runByRound = {};
+  for (const r of D.runs) { const x = D.artifacts[D.artifacts[r.id].spec]; const t = x && D.artifacts[x.proposal]; if (t) runByRound[t.round] = r.id; }
+  const runOfRound = (k) => runByRound[k];
+  if (!keys.length) { $("#timechart").innerHTML = '<div class="hint">timing not recorded for this study</div>'; return; }
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Time per round by role">`;
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) { const x = padL + ((W - padL - padR) * i) / ticks; svg += `<line x1="${x}" x2="${x}" y1="0" y2="${H - 18}" stroke="var(--grid)"/><text x="${x}" y="${H - 4}" text-anchor="middle">${fmtS((max * i) / ticks)}</text>`; }
+  keys.forEach((k, i) => {
+    let x = padL; const y = i * rowH + 3; const run = runOfRound(k);
+    svg += `<text x="${padL - 6}" y="${y + 12}" text-anchor="end">${k === 0 ? "set" : "r" + k}</text>`;
+    for (const role of ROLES) {
+      const v = rounds[k][role]; if (!v) continue;
+      const w = Math.max(((W - padL - padR) * v) / max, 1);
+      svg += `<rect class="seg" data-run="${run || ""}" x="${x}" y="${y}" width="${w}" height="${rowH - 7}" rx="3" fill="${css("r-" + role)}" data-tip="<b>${k === 0 ? "setup" : "round " + k}</b> · ${role}<br>${fmtS(v)} · ${((v / sum(rounds[k])) * 100).toFixed(0)}% of round${run ? "<br>" + run : ""}"/>`;
+      x += w;
+    }
+    svg += `<text x="${x + 6}" y="${y + 12}">${fmtS(sum(rounds[k]))}</text>`;
+  });
+  $("#timechart").innerHTML = svg + "</svg>";
+  $("#rolekeys").innerHTML = ROLES.filter((r) => D.time_by_role[r]).map((r) => `<span><i class="sw" style="background:${css("r-" + r)}"></i>${r} <b>${fmtS(D.time_by_role[r])}</b></span>`).join("");
+}
+
+/* ---------- beliefs ---------- */
+function beliefChart() {
+  const T = D.trajectory; if (!T.length) { $("#belief").innerHTML = '<div class="hint">no updates yet</div>'; return; }
+  const W = 560, H = 190, pl = 30, pr = 12, pt = 8, pb = 22;
+  const X = (i) => pl + ((W - pl - pr) * i) / Math.max(T.length - 1, 1);
+  const Y = (w) => pt + (H - pt - pb) * (1 - w);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Belief per hypothesis over runs">`;
+  for (const g of [0, .5, 1]) svg += `<line x1="${pl}" x2="${W - pr}" y1="${Y(g)}" y2="${Y(g)}" stroke="var(--grid)"/><text x="${pl - 6}" y="${Y(g) + 3}" text-anchor="end">${g}</text>`;
+  T.forEach((t, i) => { svg += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle">${t.run ? t.run.slice(2) : "prior"}</text>`; });
+  for (const h of hyps) {
+    const pts = T.map((t, i) => [i, t.w[h.id]]).filter(([, w]) => w !== undefined);
+    if (!pts.length) continue;
+    const dim = state.hyp && state.hyp !== h.id;
+    const path = pts.map(([i, w], j) => `${j ? "L" : "M"}${X(i).toFixed(1)},${Y(w).toFixed(1)}`).join("");
+    svg += `<path d="${path}" fill="none" stroke="${hcol(h.id)}" stroke-width="${state.hyp === h.id ? 3 : 2}" stroke-linejoin="round" opacity="${dim ? .15 : h.status === "refuted" ? .55 : 1}" data-h="${h.id}" style="cursor:pointer" ${h.status === "refuted" ? 'stroke-dasharray="4 3"' : ""}/>`;
+    for (const [i, w] of pts) svg += `<circle cx="${X(i)}" cy="${Y(w)}" r="${state.hyp === h.id ? 4 : 2.5}" fill="${hcol(h.id)}" opacity="${dim ? .15 : 1}" data-h="${h.id}" data-tip="<b>${h.id}</b> ${esc(h.claim)}<br>${T[i].run || "prior"} → ${(w * 100).toFixed(1)}%"/>`;
+  }
+  $("#belief").innerHTML = svg + "</svg>";
+  $("#hlegend").innerHTML = hyps.map((h) => { const w = D.beliefs[h.id] ?? 0; return `<div class="lh ${h.status === "refuted" ? "ref" : ""} ${state.hyp === h.id ? "on" : ""}" data-h="${h.id}"><i class="c" style="background:${hcol(h.id)}"></i><span class="id" data-id="${h.id}">${h.id}</span><span class="t">${esc(h.claim)}${h.post_hoc ? ' <span class="badge">post-hoc</span>' : ""}${h.refuted_by ? ` <span class="badge no">✗ ${h.refuted_by}</span>` : ""}</span><span class="w num">${(w * 100).toFixed(0)}%</span></div>`; }).join("");
+}
+document.addEventListener("mouseover", (e) => { const t = e.target.closest("[data-h]"); const id = t ? t.dataset.h : null; if (id !== state.hyp && (t || state.hyp)) { state.hyp = id; beliefChart(); } });
+
+/* ---------- token matrix ---------- */
+function matrix() {
+  const arms = [...new Set(D.runs.flatMap((r) => r.lanes.map((l) => l.name)))];
+  const val = (l) => state.unit === "tok" ? sum(l.tok) : (l.usd || 0);
+  const max = Math.max(...D.runs.flatMap((r) => r.lanes.map(val)), 1e-9);
+  let html = `<div class="hd">run</div>${arms.map((a) => `<div class="hd">${esc(a)}</div>`).join("")}`;
+  for (const r of D.runs.slice().reverse()) {
+    html += `<div class="mrow ${r.id === state.run ? "sel" : ""}" data-run="${r.id}"><div class="rl"><span class="id" data-id="${r.id}">${r.id}</span> ${esc(r.test)} <span class="badge ${r.pass ? "ok" : "no"}">${r.pass ? "✓" : "✗"}</span></div>`;
+    for (const a of arms) {
+      const l = r.lanes.find((x) => x.name === a);
+      if (!l) { html += "<div></div>"; continue; }
+      const v = val(l), total = sum(l.tok) || 1;
+      const segs = state.unit === "tok"
+        ? TOK.map((k) => `<span style="width:${((l.tok[k] || 0) / max) * 100}%;background:${css("t-" + k)}"></span>`).join("")
+        : `<span style="width:${(v / max) * 100}%;background:var(--accent)"></span>`;
+      const tipHtml = `<b>${r.id} · ${esc(a)}</b><br>` + TOK.map((k) => `${esc(D.token_legend[k] || k)}: ${fmtT(l.tok[k] || 0)} (${(((l.tok[k] || 0) / total) * 100).toFixed(0)}%)`).join("<br>") + `<br>${l.usd != null ? fmtUsd(l.usd) : ""}${l.wall_s != null ? " · " + fmtS(l.wall_s) : ""}`;
+      html += `<div class="cell ${a === r.winner ? "win" : ""}" data-tip="${esc(tipHtml)}"><div class="stack" style="background:transparent">${segs}</div><span class="v num">${a === r.winner ? "★ " : ""}${state.unit === "tok" ? fmtT(v) : fmtUsd(v)}</span></div>`;
+    }
+    html += "</div>";
+  }
+  const el = $("#matrix"); el.style.gridTemplateColumns = `minmax(150px, 1.1fr) repeat(${arms.length}, minmax(90px, 1fr))`; el.innerHTML = html;
+  $("#tokkeys").innerHTML = TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)}</span>`).join("") + `<span>· bars share one scale · ★ cheapest arm (cost incl. compaction)</span>`;
+}
+$("#unit").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; state.unit = b.dataset.u; [...$("#unit").children].forEach((x) => x.classList.toggle("on", x === b)); matrix(); });
+
+/* ---------- fan-out detail ---------- */
+function runDetail() {
+  $("#runchips").innerHTML = D.runs.map((r) => `<button class="chip ${r.id === state.run ? "on" : ""}" data-run="${r.id}"><i style="background:${r.pass ? "var(--good)" : "var(--bad)"}"></i>${r.id}</button>`).join("");
+  const r = D.runs.find((x) => x.id === state.run);
+  if (!r) { $("#rundetail").innerHTML = '<div class="hint">no runs yet</div>'; return; }
+  const sel = D.artifacts[r.why] || {};
+  const maxEig = Math.max(...(sel.table || []).map((t) => t.eig), 1e-9);
+  const cands = (sel.table || []).map((t) => `<div class="cand ${t.T === sel.picked ? "pick" : ""}"><span class="id" data-id="${t.T}">${t.T}</span><span>${t.T === sel.picked ? "▸ " : ""}${esc(t.test)}</span><div data-tip="EIG ${t.eig} bits · score ${t.score}${t.feasible ? "" : " · infeasible: " + esc(t.note)}"><div class="eb" style="width:${(t.eig / maxEig) * 100}%"></div></div><span class="num" style="text-align:right">${t.eig}b · $${t.usd}${t.feasible ? "" : ` <span class="badge no">${esc(t.note)}</span>`}</span></div>`).join("");
+  const tMax = Math.max(...r.lanes.flatMap((l) => l.points.map((p) => p.t1)), 1);
+  const timed = r.lanes.some((l) => l.points.some((p) => p.t1 > 0));
+  const W = 600;
+  const lanes = r.lanes.map((l) => {
+    const n = l.points.length, rh = n > 10 ? 6 : 10, gap = 2, H = n * (rh + gap);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px">`;
+    l.points.forEach((p, i) => {
+      const x = timed ? (p.t0 / tMax) * W : (i / n) * W, w = timed ? Math.max(((p.t1 - p.t0) / tMax) * W, 2) : W / n - 3, y = timed ? i * (rh + gap) : 0;
+      const fill = p.k === "read" ? "var(--t-read)" : p.k === "write" || p.k === "prewarm" ? "var(--t-write)" : "var(--t-uncached)";
+      const t = `<b>${esc(p.label)}</b> · ${esc(D.legend[p.k] || p.k)}<br>${TOK.map((k) => `${esc(D.token_legend[k] || k)} ${fmtT(p.tok[k] || 0)}`).join(" · ")}<br>${fmtUsd(p.usd)} · ${Math.round(p.t0)}–${Math.round(p.t1)} ms`;
+      svg += `<rect class="req" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rh}" rx="2" fill="${fill}" ${p.k === "prewarm" ? 'fill-opacity=".45" stroke="var(--t-write)"' : ""} data-l="${esc(l.name)}" data-i="${i}" data-tip="${esc(t)}"/>`;
+    });
+    svg += "</svg>";
+    return `<div class="gantt-lane ${l.name === r.winner ? "win" : ""}"><span class="n">${esc(l.name)}${l.name === r.winner ? " ★" : ""}</span>${svg}<span class="s num">${fmtT(sum(l.tok))} tok · ${l.usd != null ? fmtUsd(l.usd) : ""}<br>${l.wall_s != null ? fmtS(l.wall_s) : ""} · ${n} req</span></div>`;
+  }).join("");
+  const axis = `<div class="gantt-lane" style="border:0;padding-top:0"><span></span><svg viewBox="0 0 ${W} 14" preserveAspectRatio="none" style="height:14px">${[0, .25, .5, .75, 1].map((f) => `<text x="${f * W}" y="11" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}">${Math.round(f * tMax)}ms</text>`).join("")}</svg><span></span></div>`;
+  $("#rundetail").innerHTML = `
+    <div class="runmeta"><span class="t">${ids(r.id)} ${esc(r.test)}</span><span>→ <b>${esc(r.outcome)}</b></span>
+      <span class="badge ${r.pass ? "ok" : "no"}">${r.pass ? "skeptic ✓" : "skeptic ✗"}</span> ${r.review ? ids(r.review) : ""}<span style="color:var(--mute)">why: ${ids(r.why)} ${esc(sel.why || "")}</span></div>
+    <div class="hint" style="font-size:11px;color:var(--mute)">tests compared (expected info gain · est. live $)</div>
+    <div class="cands">${cands}</div>
+    <div class="hint" style="font-size:11px;color:var(--mute);margin-bottom:4px">${timed ? "requests over time (simulated latency) · each bar = one request" : "timing not recorded · one block per request"} · click to inspect</div>
+    ${lanes}${axis}
+    <div class="keys">${Object.entries(D.legend).map(([k, v]) => `<span><i class="sw" style="background:${k === "read" ? "var(--t-read)" : k === "full" ? "var(--t-uncached)" : "var(--t-write)"};${k === "prewarm" ? "opacity:.45" : ""}"></i>${esc(v)}</span>`).join("")}</div>`;
+  $("#rundetail").querySelectorAll(".req").forEach((el) => el.addEventListener("click", () => {
+    $("#rundetail").querySelectorAll(".req.sel").forEach((x) => x.classList.remove("sel")); el.classList.add("sel");
+    const l = r.lanes.find((x) => x.name === el.dataset.l), p = l.points[+el.dataset.i];
+    inspect(`${r.id} · ${l.name} · ${p.label}`, { file: l.file, ...p });
+  }));
+}
+function selectRun(id) { if (!id) return; state.run = id; try { history.replaceState(null, "", "#" + id); } catch (e) {} runDetail(); matrix(); $("#rundetail").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+document.addEventListener("click", (e) => { if (e.target.closest(".id")) return; const t = e.target.closest("[data-run]"); if (t && t.dataset.run) selectRun(t.dataset.run); });
+
+/* ---------- steps ---------- */
+function steps() {
+  $("#rolefilter").innerHTML = ROLES.filter((r) => r !== "board").map((r) => `<button class="chip ${state.roles.has(r) ? "on" : ""}" data-role="${r}"><i style="background:${css("r-" + r)}"></i>${r}</button>`).join("");
+  $("#steps").innerHTML = D.steps.filter((s) => state.roles.has(s.role)).map((s) => `<li><i class="d" style="background:${css("r-" + s.role)}"></i><span class="r">${esc(s.role)}</span><span class="l" title="${esc(s.line)}">${ids(s.line)}</span></li>`).join("") || '<li><span></span><span></span><span class="l">no steps for this filter</span></li>';
+}
+$("#rolefilter").addEventListener("click", (e) => { const b = e.target.closest("[data-role]"); if (!b) return; const r = b.dataset.role; state.roles.has(r) ? state.roles.delete(r) : state.roles.add(r); steps(); });
+
+kpis(); timeChart(); beliefChart(); matrix(); runDetail(); steps();
+</script>
+</body>
+</html>

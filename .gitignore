@@ -42,3 +42,6 @@ desktop.ini
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Research loop output (regenerate with: python -m lab --study studies/<name>)
+studies/*/
