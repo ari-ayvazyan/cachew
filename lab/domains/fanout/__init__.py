@@ -87,3 +87,17 @@ token_legend = {"uncached": "uncached input", "write": "cache write", "read": "c
 def tokens(u: dict[str, Any]) -> dict[str, int]:
     return {"uncached": u["input_tokens"], "write": u["cache_creation_input_tokens"],
             "read": u["cache_read_input_tokens"], "output": u["output_tokens"]}
+
+
+# -- plain-language labels for the board ------------------------------------
+arm_labels = {"naive": "No cache", "cache_only": "Cache raw history", "compact_only": "Compact, no cache",
+              "compact_cache": "Compact + cache", "compaction": "Compaction call"}
+outcome_labels = {"compact_cache": "Compact + cache", "cache_only": "Cache raw history", "other": "No cache / compact only"}
+check_labels = {"intervention_ran": "Caching actually happened", "controls": "Fair comparison (same tasks, baseline present)",
+                "no_leakage": "Nothing leaked between strategies or tasks", "claims_match_raw": "Reported costs match the raw data"}
+point_labels = {"full": "paid full price", "write": "wrote the cache", "read": "read from cache", "prewarm": "pre-warm"}
+
+
+def describe(params: dict[str, Any]) -> str:
+    model = {"claude-haiku-4-5": "Haiku", "claude-opus-5-5": "Opus", "claude-sonnet-5-5": "Sonnet"}.get(params["model"], params["model"])
+    return f"{model} · {params['n']} agents · {params['history_tokens'] // 1000}K history"

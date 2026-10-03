@@ -9,8 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f6f5f1; --panel: #ffffff; --panel2: #faf9f6; --ink: #1b1a17; --ink2: #4a4741; --mute: #8a857b; --line: #e8e4dc; --grid: #efebe4;
-  --accent: #c2410c; --good: #15803d; --bad: #dc2626;
+  --bg: #f6f5f1; --panel: #ffffff; --panel2: #f8f7f3; --ink: #1b1a17; --ink2: #4a4741; --mute: #8a857b; --line: #e8e4dc; --grid: #efebe4;
+  --accent: #c2410c; --accent-bg: #fff1e8; --good: #15803d; --good-bg: #e9f7ee; --bad: #dc2626; --bad-bg: #fdecec;
+  --k-full: #b6b0a6; --k-write: #f59e0b; --k-read: #10b981; --k-prewarm: #fcd34d;
   --t-uncached: #a8a29e; --t-write: #f59e0b; --t-read: #10b981; --t-output: #6366f1;
   --r-proposer: #8b5cf6; --r-selector: #3b82f6; --r-runner: #f97316; --r-skeptic: #ef4444; --r-judge: #10b981; --r-board: #a8a29e;
   --shadow: 0 1px 2px rgba(20,18,14,.04), 0 4px 16px rgba(20,18,14,.05);
@@ -18,163 +19,207 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #111110; --panel: #1a1917; --panel2: #201f1c; --ink: #f1efe9; --ink2: #c9c5bc; --mute: #8f8a80; --line: #2c2a26; --grid: #24221f;
-    --accent: #fb923c; --good: #34d399; --bad: #f87171; --t-uncached: #78716c;
+    --accent: #fb923c; --accent-bg: #2a1d13; --good: #34d399; --good-bg: #12261d; --bad: #f87171; --bad-bg: #2a1616; --k-full: #6b665e; --t-uncached: #78716c;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
   }
 }
 :root[data-theme="dark"] {
   --bg: #111110; --panel: #1a1917; --panel2: #201f1c; --ink: #f1efe9; --ink2: #c9c5bc; --mute: #8f8a80; --line: #2c2a26; --grid: #24221f;
-  --accent: #fb923c; --good: #34d399; --bad: #f87171; --t-uncached: #78716c;
+  --accent: #fb923c; --accent-bg: #2a1d13; --good: #34d399; --good-bg: #12261d; --bad: #f87171; --bad-bg: #2a1616; --k-full: #6b665e; --t-uncached: #78716c;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
 .mono, .id, .num { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
 .num { font-variant-numeric: tabular-nums; }
 main { max-width: 1320px; margin: 0 auto; padding: 22px 16px 80px; }
-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); font-weight: 600; }
-h1 { font-size: 22px; line-height: 1.2; margin: 4px 0 0; font-weight: 700; letter-spacing: -.01em; }
-.now { color: var(--ink2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+h1 { font-size: 24px; line-height: 1.2; margin: 4px 0 0; font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 15px; margin: 0; font-weight: 700; }
+.sub2 { color: var(--mute); font-size: 12px; margin-top: 2px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12px; background: var(--panel); border: 1px solid var(--line); }
 .pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-.pill.resolved i { background: var(--good); } .pill.running i { animation: pulse 1.2s infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
-button.theme { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); border-radius: 8px; padding: 4px 8px; cursor: pointer; font: inherit; }
+.pill.resolved i { background: var(--good); }
+.live i, .pulse { animation: pulse 1.1s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+button.ghost { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); border-radius: 8px; padding: 4px 9px; cursor: pointer; font: inherit; font-size: 12px; }
+.now { display: flex; align-items: center; gap: 10px; background: var(--accent-bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.now .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+.now.done { background: var(--good-bg); } .now.done .dot { background: var(--good); }
+.now b { font-weight: 700; }
 
-.kpis { display: grid; grid-template-columns: 1.6fr 1fr 1.2fr 1.2fr 1fr; gap: 12px; margin-bottom: 14px; }
+.kpis { display: grid; grid-template-columns: 1.7fr 1fr 1.2fr 1.2fr 1fr; gap: 12px; margin-bottom: 14px; }
 @media (max-width: 1000px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpis .verdict { grid-column: 1 / -1; } }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); min-width: 0; }
 .kpi .lbl { font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
-.kpi .big { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 8px; line-height: 1.1; }
+.kpi .big { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 6px; line-height: 1.15; }
 .kpi .big small { font-size: 12px; font-weight: 500; color: var(--mute); letter-spacing: 0; }
-.kpi .sub { color: var(--ink2); font-size: 12px; }
+.kpi .sub { color: var(--ink2); font-size: 12.5px; }
 .stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--grid); }
 .stack span { display: block; height: 100%; }
-.keys { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 7px; font-size: 11px; color: var(--mute); }
+.keys { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px; color: var(--mute); align-items: center; }
 .keys b { color: var(--ink2); font-weight: 600; }
-.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
-.rounds { display: flex; gap: 4px; flex-wrap: wrap; }
-.rounds span { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; cursor: pointer; }
+.sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.section { margin-bottom: 14px; }
+.ch { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 
-.row { display: grid; gap: 14px; margin-bottom: 14px; }
-.row.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-@media (max-width: 900px) { .row.two { grid-template-columns: minmax(0, 1fr); } }
-h2 { font-size: 13px; margin: 0; font-weight: 700; }
-.ch { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-.ch .hint { color: var(--mute); font-size: 11px; }
+/* ---- research map ---- */
+.map { display: flex; gap: 0; overflow-x: auto; padding: 4px 2px 10px; scroll-snap-type: x proximity; }
+.col { flex: 0 0 214px; display: flex; flex-direction: column; gap: 0; position: relative; padding-right: 26px; scroll-snap-align: start; }
+.col:not(:last-child)::after { content: ""; position: absolute; right: 7px; top: 15px; width: 12px; height: 12px; border-top: 2px solid var(--line); border-right: 2px solid var(--line); transform: rotate(45deg); }
+.col .head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 10px; cursor: pointer; font-weight: 700; border: 1px solid transparent; }
+.col .head .t { font-weight: 500; color: var(--mute); font-size: 12px; }
+.col.sel .head { background: var(--ink); color: var(--panel); }
+.col.sel .head .t { color: var(--panel); opacity: .7; }
+.col.live .head { border-color: var(--accent); }
+.node { border: 1px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.node .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--mute); font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between; }
+.node.pending { border-style: dashed; color: var(--mute); background: transparent; }
+.node.bad { background: var(--bad-bg); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.node.good { background: var(--good-bg); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
+.node.rethink { background: var(--accent-bg); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.link { width: 2px; height: 12px; background: var(--line); margin: 0 auto; }
+.cand { display: grid; grid-template-columns: 1fr 34px; gap: 6px; align-items: center; font-size: 11.5px; color: var(--mute); padding: 1px 0; }
+.cand .bar { height: 4px; border-radius: 2px; background: var(--r-selector); opacity: .3; margin-top: 2px; }
+.cand.pick { color: var(--ink); font-weight: 600; }
+.cand.pick .bar { opacity: 1; }
+.cand.no { text-decoration: line-through; opacity: .6; }
+.cand .e { font-size: 10px; text-align: right; }
+.mini { display: grid; gap: 3px; margin-top: 6px; }
+.mini .r { display: grid; grid-template-columns: 58px 1fr; gap: 6px; align-items: center; font-size: 10px; color: var(--mute); }
+.mini .r.win { color: var(--good); font-weight: 700; }
+.sq { display: flex; flex-wrap: wrap; gap: 2px; }
+.sq i { width: 6px; height: 6px; border-radius: 1.5px; }
+.k-full { background: var(--k-full); } .k-write { background: var(--k-write); } .k-read { background: var(--k-read); } .k-prewarm { background: var(--k-prewarm); }
+.hchip { display: flex; gap: 6px; align-items: baseline; font-size: 11.5px; padding: 1px 0; }
+.start .node, .end .node { background: var(--panel); }
+
+/* ---- rounds + detail ---- */
+.two { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; }
+@media (max-width: 980px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.round { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.round.sel { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.round > button { all: unset; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; box-sizing: border-box; padding: 10px 12px; cursor: pointer; background: var(--panel2); }
+.round > button:focus-visible { outline: 2px solid var(--accent); }
+.round .rn { font-weight: 700; white-space: nowrap; }
+.round .rs { color: var(--ink2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.round .rt { color: var(--mute); font-size: 11px; }
+.round:not(.open) ol { display: none; }
+#detail { position: sticky; top: 12px; align-self: start; }
+@media (max-width: 980px) { #detail { position: static; } }
+.round ol { list-style: none; margin: 0; padding: 4px 12px 8px; }
+.round li { display: grid; grid-template-columns: 22px 62px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--grid); align-items: start; }
+.round li:first-child { border-top: 0; }
+.ic { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+.verb { font-weight: 700; font-size: 12.5px; padding-top: 2px; }
+.txt { color: var(--ink2); font-size: 13px; }
+.txt .ids { display: block; margin-top: 2px; }
+.ids .id { font-size: 10.5px; margin-right: 6px; opacity: .85; }
+.round li.pending .txt, .round li.pending .verb { color: var(--mute); }
+.round li.pending .ic { background: var(--grid) !important; color: var(--mute); }
+.id { color: var(--accent); cursor: pointer; font-weight: 600; font-size: 11px; }
+.id:hover { text-decoration: underline; }
+
+.lead { color: var(--ink2); margin: 2px 0 14px; font-size: 13.5px; }
+.lead b { color: var(--ink); }
+.arms { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { .arms { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.arm { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel2); position: relative; }
+.arm.win { border-color: var(--good); background: var(--good-bg); }
+.arm .an { font-weight: 700; font-size: 13px; }
+.arm .au { font-size: 22px; font-weight: 700; margin: 4px 0 0; letter-spacing: -.02em; }
+.arm .at { font-size: 11.5px; color: var(--mute); }
+.arm .tag { position: absolute; top: -9px; right: 10px; background: var(--good); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+.arm .rel { height: 6px; border-radius: 3px; background: var(--grid); margin: 8px 0; overflow: hidden; }
+.arm .rel span { display: block; height: 100%; background: var(--ink2); border-radius: 3px; }
+.arm.win .rel span { background: var(--good); }
+.agents { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.agents button { width: 14px; height: 14px; border-radius: 3px; border: 0; padding: 0; cursor: pointer; }
+.agents button:hover { outline: 2px solid var(--ink); }
+.arm .ac { font-size: 11px; color: var(--ink2); margin-top: 6px; }
+.checks { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; }
+@media (max-width: 620px) { .checks { grid-template-columns: 1fr; } }
+.checks li { font-size: 12.5px; display: flex; gap: 6px; }
+.checks .ok { color: var(--good); font-weight: 700; } .checks .no { color: var(--bad); font-weight: 700; }
+details { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 10px; }
+summary { cursor: pointer; color: var(--ink2); font-size: 12.5px; font-weight: 600; }
+.gl { display: grid; grid-template-columns: 120px minmax(0, 1fr) 70px; gap: 10px; align-items: center; padding: 4px 0; font-size: 12px; }
+.gl .s { text-align: right; color: var(--mute); font-size: 11px; }
 svg { display: block; width: 100%; height: auto; overflow: visible; }
 svg text { font: 10px "JetBrains Mono", ui-monospace, monospace; fill: var(--mute); }
-.seg { cursor: pointer; transition: opacity .12s; }
-.seg:hover { opacity: .8; }
-.hl { stroke: var(--ink); stroke-width: 1.5; }
 
-.legend-h { display: grid; gap: 4px; margin-top: 10px; }
-.lh { display: grid; grid-template-columns: 12px 50px 1fr 44px; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
-.lh:hover, .lh.on { background: var(--panel2); }
-.lh .c { width: 10px; height: 10px; border-radius: 3px; }
-.lh.ref .t { color: var(--mute); text-decoration: line-through; }
-.lh .w { text-align: right; font-weight: 600; }
+/* ---- confidence table ---- */
+.conf { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 12.5px; }
+.conf th { font-size: 11px; color: var(--mute); font-weight: 600; text-align: center; padding: 2px 4px; white-space: nowrap; }
+.conf th:first-child, .conf td:first-child { text-align: left; }
+.conf td { text-align: center; border-radius: 6px; padding: 6px 4px; font-family: "JetBrains Mono", monospace; font-size: 11.5px; min-width: 52px; }
+.conf td.h { font-family: Inter, sans-serif; font-size: 13px; min-width: 240px; padding-left: 0; }
+.conf td.h .c { color: var(--ink2); }
+.conf tr.ref td.h .c { color: var(--mute); text-decoration: line-through; }
+.conf td.x { color: var(--bad); font-weight: 700; }
+.conf td.born { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.conf .colsel { outline: 2px solid var(--ink); outline-offset: -1px; border-radius: 6px; }
+.scroll { overflow-x: auto; }
 
-.seg-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.seg-ctl button { border: 0; background: transparent; color: var(--ink2); padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; }
-.seg-ctl button.on { background: var(--ink); color: var(--panel); }
+/* ---- cost & time ---- */
 .matrix { display: grid; gap: 6px 10px; align-items: center; overflow-x: auto; }
 .matrix .hd { font-size: 11px; color: var(--mute); font-weight: 600; }
 .mrow { display: contents; cursor: pointer; }
-.mrow > * { padding: 4px 0; }
-.mrow.sel .rl { color: var(--accent); }
-.rl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrow.sel .rl { color: var(--accent); font-weight: 600; }
+.rl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
 .cell { display: grid; grid-template-columns: 1fr 62px; gap: 6px; align-items: center; }
-.cell .stack { height: 12px; }
-.cell .v { white-space: nowrap; text-align: right; font-size: 11px; color: var(--ink2); }
+.cell .stack { height: 12px; background: transparent; }
+.cell .v { text-align: right; font-size: 11px; color: var(--ink2); white-space: nowrap; }
 .cell.win .v { color: var(--good); font-weight: 700; }
-.badge { display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 10px; font-weight: 700; background: var(--panel2); border: 1px solid var(--line); color: var(--ink2); }
-.badge.ok { color: var(--good); } .badge.no { color: var(--bad); }
+.seg-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-ctl button { border: 0; background: transparent; color: var(--ink2); padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+.seg-ctl button.on { background: var(--ink); color: var(--panel); }
+.seg { cursor: pointer; }
 
-.chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink2); border-radius: 999px; padding: 3px 10px; cursor: pointer; font: 600 11px "JetBrains Mono", monospace; display: inline-flex; align-items: center; gap: 6px; }
-.chip i { width: 7px; height: 7px; border-radius: 50%; }
-.chip.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
-.runmeta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 12px 0 6px; color: var(--ink2); }
-.runmeta .t { font-size: 15px; font-weight: 700; color: var(--ink); }
-.cands { display: grid; gap: 3px; margin: 6px 0 12px; }
-.cand { display: grid; grid-template-columns: 54px 150px minmax(0, 1fr) 150px; gap: 8px; align-items: center; font-size: 11px; color: var(--mute); }
-.cand.pick { color: var(--ink); font-weight: 600; }
-.cand .eb { height: 6px; border-radius: 3px; background: var(--r-selector); opacity: .35; }
-.cand.pick .eb { opacity: 1; }
-.gantt-lane { display: grid; grid-template-columns: 110px minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--grid); }
-.gantt-lane .n { font-weight: 600; }
-.gantt-lane.win .n { color: var(--good); }
-.gantt-lane .s { text-align: right; font-size: 11px; color: var(--ink2); line-height: 1.35; }
-.req { cursor: pointer; }
-.req:hover { filter: brightness(1.15); }
-.req.sel { stroke: var(--ink); stroke-width: 1.5; }
-
-.steps { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
-.steps li { display: grid; grid-template-columns: 10px 64px minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 4px; border-bottom: 1px solid var(--grid); }
-.steps li .d { width: 8px; height: 8px; border-radius: 50%; }
-.steps li .l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink2); }
-.steps li .r { font-size: 10px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; }
-.id { color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 600; }
-.id:hover { text-decoration: underline; }
-
-#tip { position: fixed; pointer-events: none; z-index: 30; background: var(--ink); color: var(--panel); padding: 7px 9px; border-radius: 8px; font-size: 11px; line-height: 1.4; max-width: 280px; opacity: 0; transition: opacity .08s; box-shadow: var(--shadow); }
-#tip b { font-weight: 700; }
+#tip { position: fixed; pointer-events: none; z-index: 30; background: var(--ink); color: var(--panel); padding: 7px 9px; border-radius: 8px; font-size: 11.5px; line-height: 1.45; max-width: 300px; opacity: 0; transition: opacity .08s; }
 #insp { visibility: hidden; position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(0,0,0,.12); transform: translateX(105%); transition: transform .18s ease; z-index: 20; display: flex; flex-direction: column; }
 #insp.open { transform: none; visibility: visible; }
 #insp .hd { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
-#insp .hd b { font-size: 14px; }
 #insp .x { border: 0; background: none; color: var(--mute); font-size: 20px; cursor: pointer; }
 #insp pre { margin: 0; padding: 14px 16px; overflow: auto; font: 11px/1.5 "JetBrains Mono", ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; color: var(--ink2); }
-#insp .back { margin: 8px 16px 0; align-self: flex-start; }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <div>
-      <div class="eyebrow" id="eyebrow"></div>
-      <h1 id="q"></h1>
-    </div>
-    <div class="now"><span id="pill" class="pill"><i></i><span></span></span><span id="phase"></span><button class="theme" id="theme" aria-label="Toggle theme">◐</button></div>
+    <div><div class="eyebrow" id="eyebrow"></div><h1 id="q"></h1></div>
+    <div style="display:flex;gap:8px;align-items:center"><span id="pill" class="pill"><i></i><span></span></span><button class="ghost" id="theme" aria-label="Toggle theme">◐</button></div>
   </header>
-
+  <div class="now" id="now"></div>
   <section class="kpis" id="kpis"></section>
 
-  <section class="row two">
-    <div class="card">
-      <div class="ch"><h2>Where time goes</h2><span class="hint">per round · by role · click a bar</span></div>
-      <div id="timechart"></div>
-      <div class="keys" id="rolekeys"></div>
-    </div>
-    <div class="card">
-      <div class="ch"><h2>Beliefs over runs</h2><span class="hint">hover a line · click to inspect</span></div>
-      <div id="belief"></div>
-      <div class="legend-h" id="hlegend"></div>
-    </div>
+  <section class="card section">
+    <div class="ch"><div><h2>Research map</h2><div class="sub2">Each column is one round: the tests considered, the one that ran, what it showed and what was decided. Click a column for details.</div></div></div>
+    <div class="map" id="map"></div>
   </section>
 
-  <section class="row">
+  <section class="two section">
     <div class="card">
-      <div class="ch"><h2>Where tokens go</h2><div class="seg-ctl" id="unit"><button data-u="tok" class="on">tokens</button><button data-u="usd">$</button></div></div>
-      <div class="matrix" id="matrix"></div>
-      <div class="keys" id="tokkeys"></div>
+      <div class="ch"><div><h2>Steps</h2><div class="sub2">What each role did, round by round. Newest first; click a round to expand.</div></div></div>
+      <div id="rounds"></div>
     </div>
+    <div class="card" id="detail"></div>
   </section>
 
-  <section class="row">
-    <div class="card">
-      <div class="ch"><h2>Fan-out</h2><div class="chips" id="runchips"></div></div>
-      <div id="rundetail"></div>
-    </div>
+  <section class="card section">
+    <div class="ch"><div><h2>How confident are we in each hypothesis?</h2><div class="sub2">Probability that each hypothesis is the right one, updated after every accepted run. <b style="color:var(--bad)">✗</b> = ruled out (below 2%) · outlined = proposed in that round.</div></div></div>
+    <div class="scroll"><table class="conf" id="conf"></table></div>
   </section>
 
-  <section class="row">
+  <section class="two section">
     <div class="card">
-      <div class="ch"><h2>Steps</h2><div class="chips" id="rolefilter"></div></div>
-      <ul class="steps" id="steps"></ul>
+      <div class="ch"><div><h2>Where time goes</h2><div class="sub2">Seconds per round, by role</div></div></div>
+      <div id="timechart"></div><div class="keys" id="rolekeys"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div><h2>Where tokens go</h2><div class="sub2">Per run and strategy, one shared scale</div></div><div class="seg-ctl" id="unit"><button data-u="tok" class="on">tokens</button><button data-u="usd">$</button></div></div>
+      <div class="matrix" id="matrix"></div><div class="keys" id="tokkeys"></div>
     </div>
   </section>
 </main>
@@ -186,200 +231,259 @@ const D = {{DATA}};
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const ids = (s) => esc(s).replace(/\b((?:HO|[SHTXRKD])-\d{3})\b/g, '<span class="id" data-id="$1">$1</span>');
+const idList = (a) => (a || []).map((i) => `<span class="id" data-id="${i}">${i}</span>`).join("");
 const fmtT = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + "K" : String(Math.round(n));
 const fmtS = (s) => s >= 60 ? (s / 60).toFixed(1) + "m" : s >= 1 ? s.toFixed(1) + "s" : Math.round(s * 1000) + "ms";
-const fmtUsd = (u) => "$" + (u >= 1 ? u.toFixed(2) : u.toFixed(4));
+const fmtUsd = (u) => u == null ? "" : "$" + (u >= 1 ? u.toFixed(2) : u.toFixed(4));
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
 const css = (v) => `var(--${v})`;
+const STEPS = [["propose", "Propose", "proposer", "P"], ["choose", "Choose", "selector", "C"], ["run", "Run", "runner", "R"], ["audit", "Audit", "skeptic", "A"], ["decide", "Decide", "judge", "J"]];
 const ROLES = ["proposer", "selector", "runner", "skeptic", "judge", "board"];
 const TOK = Object.keys(D.token_legend).length ? Object.keys(D.token_legend) : Object.keys(D.tokens);
-const HCOL = ["#c2410c", "#2563eb", "#9333ea", "#0891b2", "#a3a3a3", "#16a34a", "#db2777", "#ca8a04"];
-const hyps = D.hypotheses;
-const hcol = (id) => HCOL[hyps.findIndex((h) => h.id === id) % HCOL.length];
-const state = { run: null, unit: "tok", roles: new Set(ROLES), hyp: null };
-try { const h = location.hash.slice(1); if (D.runs.some((r) => r.id === h)) state.run = h; } catch (e) {}
-if (!state.run && D.runs.length) state.run = D.runs[D.runs.length - 1].id;
+const m = D.meta, R = D.rounds, hyps = D.hypotheses;
+const running = m.status === "running";
+const resolved = /resolved/.test(m.status || "") && !/unresolved/.test(m.status || "");
+const roundTime = {};
+for (const e of D.timeline) (roundTime[e.round] ??= {})[e.role] = ((roundTime[e.round] ?? {})[e.role] || 0) + e.s;
+const leaderEntry = Object.entries(D.beliefs).sort((a, b) => b[1] - a[1])[0];
+const leaderH = leaderEntry && hyps.find((h) => h.id === leaderEntry[0]);
 
-/* ---------- tooltip + inspector ---------- */
+/* ---- persisted view state (survives the live auto-refresh) ---- */
+const store = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+const key = "board:" + m.question;
+const state = { round: null, unit: store.get(key + ":unit") || "tok" };
+const fromHash = parseInt((location.hash.match(/round-(\d+)/) || [])[1]);
+const saved = parseInt(store.get(key + ":round"));
+const latest = R.length ? R[R.length - 1].n : null;
+state.round = R.some((r) => r.n === fromHash) ? fromHash : (running ? latest : (R.some((r) => r.n === saved) ? saved : latest));
+addEventListener("scroll", () => store.set(key + ":y", String(scrollY)), { passive: true });
+
+/* ---- tooltip + inspector ---- */
 const tip = $("#tip");
-function showTip(e, html) { tip.innerHTML = html; tip.style.opacity = 1; moveTip(e); }
-function moveTip(e) { const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY + 14; if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = e.clientY - h - 14; tip.style.left = x + "px"; tip.style.top = y + "px"; }
-function hideTip() { tip.style.opacity = 0; }
-document.addEventListener("mousemove", (e) => { const t = e.target.closest("[data-tip]"); if (t) showTip(e, t.dataset.tip); else hideTip(); });
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest("[data-tip]");
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.innerHTML = t.dataset.tip; tip.style.opacity = 1;
+  const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+});
 function inspect(title, obj) { $("#insp-t").innerHTML = ids(title); $("#insp-b").innerHTML = ids(JSON.stringify(obj, null, 1)); $("#insp").classList.add("open"); }
 $("#insp .x").onclick = () => $("#insp").classList.remove("open");
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#insp").classList.remove("open"); });
-document.addEventListener("click", (e) => { const t = e.target.closest(".id"); if (t && D.artifacts[t.dataset.id]) { e.stopPropagation(); inspect(t.dataset.id, D.artifacts[t.dataset.id]); } });
+document.addEventListener("click", (e) => {
+  const t = e.target.closest(".id");
+  if (t && D.artifacts[t.dataset.id]) { e.stopPropagation(); inspect(t.dataset.id, D.artifacts[t.dataset.id]); return; }
+  const r = e.target.closest("[data-round]");
+  if (r && !e.target.closest(".agents")) selectRound(+r.dataset.round);
+});
 $("#theme").onclick = () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme = dark ? "light" : "dark"; };
 
-/* ---------- header ---------- */
-const m = D.meta;
+/* ---- header, now, KPIs ---- */
 $("#eyebrow").textContent = `Research board · ${m.domain}`;
 $("#q").textContent = m.question;
-const stopped = String(m.status || "");
-const pill = $("#pill");
-pill.classList.add(stopped.includes("resolved") && !stopped.includes("unresolved") ? "resolved" : stopped === "running" ? "running" : "x");
-$("span", pill).textContent = stopped.replace("stopped: ", "");
-$("#phase").innerHTML = ids(m.phase || "");
-
-/* ---------- KPIs ---------- */
-function stackBar(parts, colorOf) { const t = sum(parts) || 1; return `<div class="stack">${Object.entries(parts).filter(([, v]) => v > 0).map(([k, v]) => `<span style="width:${(v / t) * 100}%;background:${colorOf(k)}" data-tip="<b>${esc(k)}</b> ${esc(fmtT(v))} · ${((v / t) * 100).toFixed(0)}%"></span>`).join("")}</div>`; }
+$("#pill").classList.add(resolved ? "resolved" : running ? "live" : "x");
+$("#pill span").textContent = (m.status || "").replace("stopped: ", "");
+function nowBanner() {
+  let html;
+  if (running) html = `<span class="dot pulse"></span><span><b>Live · round ${m.round}:</b> ${ids((m.phase || "").replace(/^round \d+:\s*/, ""))}</span>`;
+  else if (resolved) html = `<span class="dot"></span><span><b>Answer:</b> ${esc(leaderH.claim)} <span class="id" data-id="${leaderH.id}">${leaderH.id}</span> · ${(leaderEntry[1] * 100).toFixed(0)}% likely after ${R.length} rounds</span>`;
+  else html = `<span class="dot" style="background:var(--mute)"></span><span><b>Stopped without an answer.</b> ${leaderH ? `Leading: ${esc(leaderH.claim)} (${(leaderEntry[1] * 100).toFixed(0)}%).` : ""}</span>`;
+  const el = $("#now"); el.className = "now" + (resolved ? " done" : ""); el.innerHTML = html;
+}
+function stackBar(parts, colorOf, fmt = fmtT) { const t = sum(parts) || 1; return `<div class="stack">${Object.entries(parts).filter(([, v]) => v > 0).map(([k, v]) => `<span style="width:${(v / t) * 100}%;background:${colorOf(k)}" data-tip="<b>${esc(k)}</b> ${esc(fmt(v))} · ${((v / t) * 100).toFixed(0)}%"></span>`).join("")}</div>`; }
 function kpis() {
-  const leader = Object.entries(D.beliefs).sort((a, b) => b[1] - a[1])[0];
-  const lh = leader && hyps.find((h) => h.id === leader[0]);
-  const reviews = Object.values(D.artifacts).filter((a) => a.id.startsWith("K-"));
-  const pass = reviews.filter((k) => k.pass).length;
+  const audits = R.filter((r) => r.audit), pass = audits.filter((r) => r.audit.pass).length;
   const totalS = sum(D.time_by_role);
-  const resolved = stopped.includes("resolved") && !stopped.includes("unresolved");
   const roleParts = Object.fromEntries(ROLES.filter((r) => D.time_by_role[r]).map((r) => [r, D.time_by_role[r]]));
-  const liveUsd = Object.values(D.artifacts).filter((a) => a.id.startsWith("D-") && a.kind === "select").reduce((s, d) => s + (d.table.find((r) => r.T === d.picked)?.usd || 0), 0);
-  const roundsHtml = D.runs.map((r) => `<span style="background:${r.pass ? "var(--good)" : "var(--bad)"}" data-run="${r.id}" data-tip="<b>${r.id}</b> ${esc(r.test)}<br>→ ${esc(r.outcome)} · ${r.pass ? "accepted" : "discarded"}">${r.id.slice(-1)}</span>`).join("");
+  const liveUsd = R.reduce((s, r) => s + (r.run ? (r.candidates.find((c) => c.picked)?.usd || 0) : 0), 0);
   $("#kpis").innerHTML = `
-    <div class="card kpi verdict"><div class="lbl">${resolved ? "Verdict" : "Leading · not resolved"}</div>
-      <div class="big">${lh ? `<span class="id" data-id="${lh.id}" style="font-size:22px">${lh.id}</span> ${(leader[1] * 100).toFixed(0)}<small>%</small>` : "—"}</div>
-      <div class="sub">${esc(lh ? lh.claim : "no runs yet")}</div>
-      <div class="sub" style="margin-top:6px;color:var(--mute)">${hyps.filter((h) => h.status === "refuted").length} of ${hyps.length} hypotheses refuted</div></div>
-    <div class="card kpi"><div class="lbl">Runs</div>
-      <div class="big num">${pass} <small>✓ accepted</small> ${reviews.length - pass} <small>✗ discarded</small></div>
-      <div class="rounds">${roundsHtml}</div></div>
+    <div class="card kpi verdict"><div class="lbl">${resolved ? "Answer" : "Leading hypothesis"}</div>
+      <div class="big">${leaderH ? `${(leaderEntry[1] * 100).toFixed(0)}<small>%</small> <span style="font-size:15px;font-weight:600">${esc(leaderH.claim)}</span>` : "—"}</div>
+      <div class="sub">${leaderH ? `<span class="id" data-id="${leaderH.id}">${leaderH.id}</span> · ` : ""}${hyps.filter((h) => h.status === "refuted").length} of ${hyps.length} hypotheses ruled out</div></div>
+    <div class="card kpi"><div class="lbl">Rounds</div>
+      <div class="big num">${R.length}<small> / ${m.rules.max_rounds}</small></div>
+      <div class="sub">${pass} runs accepted${audits.length - pass ? ` · <span style="color:var(--bad)">${audits.length - pass} rejected</span>` : ""}</div></div>
     <div class="card kpi"><div class="lbl">Time</div>
-      <div class="big num">${totalS ? fmtS(totalS) : "—"} <small>${totalS ? "loop wall" : "not recorded"}</small></div>
-      ${stackBar(roleParts, (k) => css("r-" + k))}
-      <div class="keys">${Object.entries(roleParts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `<span><i class="sw" style="background:${css("r-" + k)}"></i>${k} <b>${((v / totalS) * 100).toFixed(0)}%</b></span>`).join("")}</div></div>
-    <div class="card kpi"><div class="lbl">Tokens</div>
-      <div class="big num">${fmtT(sum(D.tokens))} <small>simulated</small></div>
+      <div class="big num">${totalS ? fmtS(totalS) : "—"}</div>
+      ${totalS ? stackBar(roleParts, (k) => css("r-" + k), fmtS) : '<div class="sub">not recorded</div>'}
+      <div class="keys">${Object.entries(roleParts).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => `<span><i class="sw" style="background:${css("r-" + k)}"></i>${k} <b>${((v / totalS) * 100).toFixed(0)}%</b></span>`).join("")}</div></div>
+    <div class="card kpi"><div class="lbl">Tokens (simulated)</div>
+      <div class="big num">${fmtT(sum(D.tokens))}</div>
       ${stackBar(D.tokens, (k) => css("t-" + k))}
-      <div class="keys">${TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
-    <div class="card kpi"><div class="lbl">Live-API cost</div>
+      <div class="keys">${TOK.slice(0, 2).map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
+    <div class="card kpi"><div class="lbl">Real-API cost</div>
       <div class="big num">${fmtUsd(liveUsd)}</div>
-      <div class="sub">what the selected tests would cost on the real API</div></div>`;
+      <div class="sub">if the tests that ran used the real API</div></div>`;
 }
 
-/* ---------- time by round ---------- */
+/* ---- research map ---- */
+const SHORT_ARM = { naive: "No cache", cache_only: "Raw cache", compact_only: "Compact", compact_cache: "Compact+C" };
+const decClass = (d) => !d ? "" : d.kind === "stop" ? (d.stop === "resolved" ? "good" : "bad") : d.kind === "refine" ? "rethink" : d.kind === "discard" ? "bad" : "";
+function miniFanout(run) {
+  return `<div class="mini">${run.arms.map((a) => `<div class="r ${a.winner ? "win" : ""}" data-tip="<b>${esc(a.label)}</b> ${fmtUsd(a.usd)}${a.winner ? " · cheapest" : ""}"><span>${esc(SHORT_ARM[a.name] || a.label)}</span><span class="sq">${a.agents.map((k) => `<i class="k-${k}"></i>`).join("")}</span></div>`).join("")}</div>`;
+}
+function map() {
+  const initial = hyps.filter((h) => !h.post_hoc);
+  let html = `<div class="col start"><div class="head"><span>Start</span></div><div class="link"></div>
+    <div class="node"><div class="lbl"><span>${initial.length} competing hypotheses</span></div>${initial.map((h) => `<div class="hchip"><span class="id" data-id="${h.id}">${h.id}</span><span>${esc(h.claim)}</span></div>`).join("")}</div></div>`;
+  for (const r of R) {
+    const live = running && r.n === m.round;
+    const t = sum(roundTime[r.n]);
+    const pick = r.candidates.find((c) => c.picked);
+    const maxE = Math.max(...r.candidates.map((c) => c.eig), 1e-9);
+    const newH = r.new_h || [];
+    const consider = r.candidates.length
+      ? `<div class="node" data-round="${r.n}"><div class="lbl"><span>Considered ${r.candidates.length}</span><span>info</span></div>${newH.length ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px">+ new hypothesis ${idList(newH)}</div>` : ""}${r.candidates.map((c) => `<div class="cand ${c.picked ? "pick" : ""} ${c.feasible ? "" : "no"}" data-tip="<b>${esc(c.desc)}</b><br>expected info: ${c.eig} bits · real-API $${c.usd}${c.feasible ? "" : "<br>skipped: " + esc(c.note)}"><div>${c.picked ? "▸ " : ""}${esc(c.desc.replace(" history", ""))}<div class="bar" style="width:${(c.eig / maxE) * 100}%"></div></div><span class="e num">${c.eig.toFixed(2)}</span></div>`).join("")}</div>`
+      : `<div class="node pending"><span class="${live ? "pulse" : ""}">Considering tests…</span></div>`;
+    const ran = r.run
+      ? `<div class="node" data-round="${r.n}"><div class="lbl"><span>Ran</span><span>${r.run.agents} agents × 4</span></div>${miniFanout(r.run)}</div>`
+      : `<div class="node pending">${live && pick ? `<span class="pulse">Running ${esc(pick.desc)}…</span>` : "Not run"}</div>`;
+    const result = r.run
+      ? `<div class="node ${r.audit && !r.audit.pass ? "bad" : ""}" data-round="${r.n}"><div class="lbl"><span>Result</span><span>${r.audit ? (r.audit.pass ? '<span style="color:var(--good)">audit ✓</span>' : '<span style="color:var(--bad)">audit ✗</span>') : '<span class="pulse">auditing</span>'}</span></div><div style="font-size:12.5px">Cheapest: <b>${esc(r.run.winner)}</b></div></div>`
+      : `<div class="node pending">—</div>`;
+    const d = r.decision;
+    const decide = d
+      ? `<div class="node ${decClass(d)}" data-round="${r.n}"><div class="lbl"><span>Decision</span></div><div style="font-size:12.5px;font-weight:700">${esc(d.text)}</div>${d.refuted.length ? `<div style="font-size:11.5px;color:var(--bad)">✗ ruled out ${idList(d.refuted)}</div>` : ""}</div>`
+      : `<div class="node pending">${live ? '<span class="pulse">deciding…</span>' : "—"}</div>`;
+    html += `<div class="col ${r.n === state.round ? "sel" : ""} ${live ? "live" : ""}" id="col-${r.n}"><div class="head" data-round="${r.n}"><span>Round ${r.n}</span><span class="t">${t ? fmtS(t) : ""}</span></div><div class="link"></div>${consider}<div class="link"></div>${ran}<div class="link"></div>${result}<div class="link"></div>${decide}</div>`;
+  }
+  if (!running) {
+    html += `<div class="col end"><div class="head"><span>${resolved ? "Answer" : "Stopped"}</span></div><div class="link"></div><div class="node ${resolved ? "good" : "bad"}"><div class="lbl"><span>${resolved ? "Resolved" : "Unresolved"}</span></div>${leaderH ? `<div style="font-weight:700;font-size:13px">${esc(leaderH.claim)}</div><div class="sub2"><span class="id" data-id="${leaderH.id}">${leaderH.id}</span> · ${(leaderEntry[1] * 100).toFixed(0)}% likely</div>` : ""}</div></div>`;
+  }
+  $("#map").innerHTML = html;
+}
+
+/* ---- rounds list ---- */
+function rounds() {
+  const list = R.slice().reverse().map((r) => {
+    const live = running && r.n === m.round;
+    const have = Object.fromEntries(r.steps.map((s) => [s.step, s]));
+    const items = STEPS.map(([k, verb, role, letter]) => {
+      const s = have[k];
+      if (!s && !live) return "";
+      return `<li class="${s ? "" : "pending"}"><span class="ic" style="background:${css("r-" + role)}" title="${role}">${letter}</span><span class="verb">${verb}</span><span class="txt">${s ? esc(s.text) : '<span class="pulse">waiting…</span>'}${s ? `<span class="ids">${idList(s.ids)}</span>` : ""}</span></li>`;
+    }).join("");
+    const t = sum(roundTime[r.n]);
+    const dot = r.audit && !r.audit.pass ? "var(--bad)" : live ? "var(--accent)" : r.decision?.kind === "refine" ? "var(--accent)" : "var(--good)";
+    return `<div class="round ${r.n === state.round ? "sel open" : ""} ${live ? "open" : ""}" id="round-${r.n}"><button data-round="${r.n}"><span class="rn"><i class="sw ${live ? "pulse" : ""}" style="background:${dot};border-radius:50%"></i>Round ${r.n}</span><span class="rs">${esc(r.summary)}</span><span class="rt num">${t ? fmtS(t) : ""}</span></button><ol>${items}</ol></div>`;
+  }).join("");
+  $("#rounds").innerHTML = list || '<div class="sub2">No rounds yet.</div>';
+}
+
+/* ---- round detail: the fan-out, explained ---- */
+function detail() {
+  const r = R.find((x) => x.n === state.round);
+  const el = $("#detail");
+  if (!r) { el.innerHTML = '<h2>Fan-out</h2><div class="sub2">Pick a round.</div>'; return; }
+  if (!r.run) { el.innerHTML = `<h2>Round ${r.n}</h2><div class="lead">${running ? '<span class="pulse">Choosing and running the test…</span>' : esc(r.summary)}</div>`; return; }
+  const run = r.run, max = Math.max(...run.arms.map((a) => a.usd || 0), 1e-9);
+  const pl = D.point_labels || {};
+  const cards = run.arms.map((a) => {
+    const counts = {}; a.agents.forEach((k) => counts[k] = (counts[k] || 0) + 1);
+    const cap = Object.entries(counts).map(([k, v]) => `${v} ${esc(pl[k] || k)}`).join(" · ");
+    return `<div class="arm ${a.winner ? "win" : ""}">${a.winner ? '<span class="tag">cheapest</span>' : ""}<div class="an">${esc(a.label)}</div><div class="au num">${fmtUsd(a.usd)}</div><div class="at num">${fmtT(a.tokens)} tokens${a.wall_s != null ? " · " + fmtS(a.wall_s) : ""}</div><div class="rel"><span style="width:${((a.usd || 0) / max) * 100}%"></span></div><div class="agents">${a.agents.map((k, i) => `<button class="k-${k}" aria-label="request ${i + 1}: ${esc(pl[k] || k)}" data-arm="${esc(a.name)}" data-i="${i}" data-tip="${esc(pl[k] || k)} · click for raw data"></button>`).join("")}</div><div class="ac">${cap}</div></div>`;
+  }).join("");
+  const save = run.saving != null && run.saving > 0 ? `, ${(run.saving * 100).toFixed(0)}% cheaper than no cache` : "";
+  const checks = r.audit ? `<ul class="checks">${r.audit.checks.map((c) => `<li data-tip="${esc(c.detail)}"><span class="${c.ok ? "ok" : "no"}">${c.ok ? "✓" : "✗"}</span>${esc(c.label)}</li>`).join("")}</ul>` : "";
+  const runData = D.runs.find((x) => x.id === run.id);
+  let timeline = "";
+  if (runData) {
+    const tMax = Math.max(...runData.lanes.flatMap((l) => l.points.map((p) => p.t1)), 1);
+    if (tMax > 1) timeline = `<details><summary>Request timeline (simulated latency)</summary>${runData.lanes.map((l) => {
+      const n = l.points.length, rh = 5, H = n * (rh + 2);
+      return `<div class="gl"><span>${esc(D.arm_labels[l.name] || l.name)}</span><svg viewBox="0 0 400 ${H}" preserveAspectRatio="none" style="height:${H}px">${l.points.map((p, i) => `<rect x="${(p.t0 / tMax) * 400}" y="${i * (rh + 2)}" width="${Math.max(((p.t1 - p.t0) / tMax) * 400, 2)}" height="${rh}" rx="1.5" fill="${css("k-" + p.k)}" data-tip="${esc(p.label)} · ${esc(pl[p.k] || p.k)}<br>${Math.round(p.t0)}–${Math.round(p.t1)} ms"/>`).join("")}</svg><span class="s num">${l.wall_s != null ? fmtS(l.wall_s) : ""}</span></div>`;
+    }).join("")}<div class="gl"><span></span><span class="sub2 num" style="display:flex;justify-content:space-between"><span>0ms</span><span>${Math.round(tMax)}ms</span></span><span></span></div></details>`;
+  }
+  el.innerHTML = `
+    <div class="ch"><div><h2>Round ${r.n} fan-out</h2><div class="sub2">${esc(run.desc)} · <span class="id" data-id="${run.id}">${run.id}</span></div></div>${r.audit ? `<span class="pill" style="color:${r.audit.pass ? "var(--good)" : "var(--bad)"}">${r.audit.pass ? "✓ audit passed" : "✗ audit failed"} <span class="id" data-id="${r.audit.id}">${r.audit.id}</span></span>` : ""}</div>
+    <div class="lead">The same <b>${run.agents} tasks</b> went through each of the 4 strategies. Cheapest: <b>${esc(run.winner)}</b>${save}.</div>
+    <div class="arms">${cards}</div>
+    <div class="keys" style="margin-top:12px">${Object.entries(pl).map(([k, v]) => `<span><i class="sw k-${k}"></i>${esc(v)}</span>`).join("")}<span>· one square = one request</span></div>
+    ${checks}${timeline}`;
+  el.querySelectorAll(".agents button").forEach((b) => b.addEventListener("click", () => {
+    const lane = runData.lanes.find((l) => l.name === b.dataset.arm), p = lane.points[+b.dataset.i];
+    inspect(`${run.id} · ${D.arm_labels[lane.name] || lane.name} · ${p.label}`, { file: lane.file, ...p });
+  }));
+}
+
+/* ---- confidence table ---- */
+function confidence() {
+  const cols = D.belief_table.cols;
+  if (!cols.length) { $("#conf").innerHTML = ""; return; }
+  const head = `<tr><th></th>${cols.map((c) => `<th class="${c.round && c.round === state.round ? "colsel" : ""}" ${c.round ? `data-round="${c.round}" style="cursor:pointer"` : ""}>${c.round ? "after R" + c.round : "start"}</th>`).join("")}</tr>`;
+  const rows = hyps.map((h) => {
+    const born = D.belief_table.born[h.id] || 0;
+    const cells = cols.map((c) => {
+      const w = c.w[h.id];
+      if (w === undefined || (h.post_hoc && c.round < born)) return "<td></td>";
+      const x = (c.refuted || []).includes(h.id);
+      const bg = `color-mix(in srgb, var(--accent) ${Math.round(w * 85)}%, var(--panel2))`;
+      return `<td class="num ${x ? "x" : ""} ${h.post_hoc && c.round === born ? "born" : ""}" style="background:${bg};${w > .55 ? "color:#fff" : ""}" data-tip="<b>${h.id}</b> after ${c.label}: ${(w * 100).toFixed(1)}%">${x ? "✗ " : ""}${w < .005 ? "0" : (w * 100).toFixed(0)}%</td>`;
+    }).join("");
+    return `<tr class="${h.status === "refuted" ? "ref" : ""}"><td class="h"><span class="id" data-id="${h.id}">${h.id}</span> <span class="c">${esc(h.claim)}</span></td>${cells}</tr>`;
+  }).join("");
+  $("#conf").innerHTML = head + rows;
+}
+
+/* ---- time + tokens ---- */
 function timeChart() {
-  const rounds = {};
-  for (const e of D.timeline) { (rounds[e.round] ??= {})[e.role] = ((rounds[e.round] ?? {})[e.role] || 0) + e.s; }
-  const keys = Object.keys(rounds).map(Number).sort((a, b) => a - b);
-  const max = Math.max(...keys.map((k) => sum(rounds[k])), 0.001);
-  const W = 560, rowH = 22, padL = 30, padR = 50, H = keys.length * rowH + 22;
-  const runByRound = {};
-  for (const r of D.runs) { const x = D.artifacts[D.artifacts[r.id].spec]; const t = x && D.artifacts[x.proposal]; if (t) runByRound[t.round] = r.id; }
-  const runOfRound = (k) => runByRound[k];
-  if (!keys.length) { $("#timechart").innerHTML = '<div class="hint">timing not recorded for this study</div>'; return; }
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Time per round by role">`;
-  const ticks = 4;
-  for (let i = 0; i <= ticks; i++) { const x = padL + ((W - padL - padR) * i) / ticks; svg += `<line x1="${x}" x2="${x}" y1="0" y2="${H - 18}" stroke="var(--grid)"/><text x="${x}" y="${H - 4}" text-anchor="middle">${fmtS((max * i) / ticks)}</text>`; }
+  const keys = Object.keys(roundTime).map(Number).sort((a, b) => a - b);
+  if (!keys.length) { $("#timechart").innerHTML = '<div class="sub2">Timing not recorded for this study.</div>'; return; }
+  const max = Math.max(...keys.map((k) => sum(roundTime[k])), 0.001);
+  const W = 520, rowH = 22, padL = 50, padR = 46, H = keys.length * rowH + 20;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Seconds per round by role">`;
+  for (let i = 0; i <= 4; i++) { const x = padL + ((W - padL - padR) * i) / 4; svg += `<line x1="${x}" x2="${x}" y1="0" y2="${H - 16}" stroke="var(--grid)"/><text x="${x}" y="${H - 3}" text-anchor="middle">${fmtS((max * i) / 4)}</text>`; }
   keys.forEach((k, i) => {
-    let x = padL; const y = i * rowH + 3; const run = runOfRound(k);
-    svg += `<text x="${padL - 6}" y="${y + 12}" text-anchor="end">${k === 0 ? "set" : "r" + k}</text>`;
+    let x = padL; const y = i * rowH + 3;
+    svg += `<text x="${padL - 6}" y="${y + 12}" text-anchor="end">${k === 0 ? "setup" : "round " + k}</text>`;
     for (const role of ROLES) {
-      const v = rounds[k][role]; if (!v) continue;
+      const v = roundTime[k][role]; if (!v) continue;
       const w = Math.max(((W - padL - padR) * v) / max, 1);
-      svg += `<rect class="seg" data-run="${run || ""}" x="${x}" y="${y}" width="${w}" height="${rowH - 7}" rx="3" fill="${css("r-" + role)}" data-tip="<b>${k === 0 ? "setup" : "round " + k}</b> · ${role}<br>${fmtS(v)} · ${((v / sum(rounds[k])) * 100).toFixed(0)}% of round${run ? "<br>" + run : ""}"/>`;
+      svg += `<rect class="seg" ${k ? `data-round="${k}"` : ""} x="${x}" y="${y}" width="${w}" height="${rowH - 8}" rx="3" fill="${css("r-" + role)}" data-tip="<b>${k ? "round " + k : "setup"}</b> · ${role}: ${fmtS(v)}"/>`;
       x += w;
     }
-    svg += `<text x="${x + 6}" y="${y + 12}">${fmtS(sum(rounds[k]))}</text>`;
+    svg += `<text x="${x + 6}" y="${y + 12}">${fmtS(sum(roundTime[k]))}</text>`;
   });
   $("#timechart").innerHTML = svg + "</svg>";
-  $("#rolekeys").innerHTML = ROLES.filter((r) => D.time_by_role[r]).map((r) => `<span><i class="sw" style="background:${css("r-" + r)}"></i>${r} <b>${fmtS(D.time_by_role[r])}</b></span>`).join("");
+  $("#rolekeys").innerHTML = ROLES.filter((r) => D.time_by_role[r]).map((r) => `<span><i class="sw" style="background:${css("r-" + r)}"></i>${r === "runner" ? "runner (API calls)" : r === "board" ? "board updates" : r} <b>${fmtS(D.time_by_role[r])}</b></span>`).join("");
 }
-
-/* ---------- beliefs ---------- */
-function beliefChart() {
-  const T = D.trajectory; if (!T.length) { $("#belief").innerHTML = '<div class="hint">no updates yet</div>'; return; }
-  const W = 560, H = 190, pl = 30, pr = 12, pt = 8, pb = 22;
-  const X = (i) => pl + ((W - pl - pr) * i) / Math.max(T.length - 1, 1);
-  const Y = (w) => pt + (H - pt - pb) * (1 - w);
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Belief per hypothesis over runs">`;
-  for (const g of [0, .5, 1]) svg += `<line x1="${pl}" x2="${W - pr}" y1="${Y(g)}" y2="${Y(g)}" stroke="var(--grid)"/><text x="${pl - 6}" y="${Y(g) + 3}" text-anchor="end">${g}</text>`;
-  T.forEach((t, i) => { svg += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle">${t.run ? t.run.slice(2) : "prior"}</text>`; });
-  for (const h of hyps) {
-    const pts = T.map((t, i) => [i, t.w[h.id]]).filter(([, w]) => w !== undefined);
-    if (!pts.length) continue;
-    const dim = state.hyp && state.hyp !== h.id;
-    const path = pts.map(([i, w], j) => `${j ? "L" : "M"}${X(i).toFixed(1)},${Y(w).toFixed(1)}`).join("");
-    svg += `<path d="${path}" fill="none" stroke="${hcol(h.id)}" stroke-width="${state.hyp === h.id ? 3 : 2}" stroke-linejoin="round" opacity="${dim ? .15 : h.status === "refuted" ? .55 : 1}" data-h="${h.id}" style="cursor:pointer" ${h.status === "refuted" ? 'stroke-dasharray="4 3"' : ""}/>`;
-    for (const [i, w] of pts) svg += `<circle cx="${X(i)}" cy="${Y(w)}" r="${state.hyp === h.id ? 4 : 2.5}" fill="${hcol(h.id)}" opacity="${dim ? .15 : 1}" data-h="${h.id}" data-tip="<b>${h.id}</b> ${esc(h.claim)}<br>${T[i].run || "prior"} → ${(w * 100).toFixed(1)}%"/>`;
-  }
-  $("#belief").innerHTML = svg + "</svg>";
-  $("#hlegend").innerHTML = hyps.map((h) => { const w = D.beliefs[h.id] ?? 0; return `<div class="lh ${h.status === "refuted" ? "ref" : ""} ${state.hyp === h.id ? "on" : ""}" data-h="${h.id}"><i class="c" style="background:${hcol(h.id)}"></i><span class="id" data-id="${h.id}">${h.id}</span><span class="t">${esc(h.claim)}${h.post_hoc ? ' <span class="badge">post-hoc</span>' : ""}${h.refuted_by ? ` <span class="badge no">✗ ${h.refuted_by}</span>` : ""}</span><span class="w num">${(w * 100).toFixed(0)}%</span></div>`; }).join("");
-}
-document.addEventListener("mouseover", (e) => { const t = e.target.closest("[data-h]"); const id = t ? t.dataset.h : null; if (id !== state.hyp && (t || state.hyp)) { state.hyp = id; beliefChart(); } });
-
-/* ---------- token matrix ---------- */
 function matrix() {
-  const arms = [...new Set(D.runs.flatMap((r) => r.lanes.map((l) => l.name)))];
+  const arms = [...new Set(D.runs.flatMap((r) => r.lanes.map((l) => l.name)))].filter((a) => a !== "compaction");
   const val = (l) => state.unit === "tok" ? sum(l.tok) : (l.usd || 0);
-  const max = Math.max(...D.runs.flatMap((r) => r.lanes.map(val)), 1e-9);
-  let html = `<div class="hd">run</div>${arms.map((a) => `<div class="hd">${esc(a)}</div>`).join("")}`;
+  const max = Math.max(...D.runs.flatMap((r) => r.lanes.filter((l) => l.name !== "compaction").map(val)), 1e-9);
+  const roundOfRun = Object.fromEntries(R.filter((r) => r.run).map((r) => [r.run.id, r.n]));
+  let html = `<div class="hd">round</div>${arms.map((a) => `<div class="hd">${esc(D.arm_labels[a] || a)}</div>`).join("")}`;
   for (const r of D.runs.slice().reverse()) {
-    html += `<div class="mrow ${r.id === state.run ? "sel" : ""}" data-run="${r.id}"><div class="rl"><span class="id" data-id="${r.id}">${r.id}</span> ${esc(r.test)} <span class="badge ${r.pass ? "ok" : "no"}">${r.pass ? "✓" : "✗"}</span></div>`;
+    const n = roundOfRun[r.id];
+    html += `<div class="mrow ${n === state.round ? "sel" : ""}" ${n ? `data-round="${n}"` : ""}><div class="rl">R${n ?? "?"} · ${esc(r.test)}</div>`;
     for (const a of arms) {
       const l = r.lanes.find((x) => x.name === a);
       if (!l) { html += "<div></div>"; continue; }
-      const v = val(l), total = sum(l.tok) || 1;
-      const segs = state.unit === "tok"
-        ? TOK.map((k) => `<span style="width:${((l.tok[k] || 0) / max) * 100}%;background:${css("t-" + k)}"></span>`).join("")
-        : `<span style="width:${(v / max) * 100}%;background:var(--accent)"></span>`;
-      const tipHtml = `<b>${r.id} · ${esc(a)}</b><br>` + TOK.map((k) => `${esc(D.token_legend[k] || k)}: ${fmtT(l.tok[k] || 0)} (${(((l.tok[k] || 0) / total) * 100).toFixed(0)}%)`).join("<br>") + `<br>${l.usd != null ? fmtUsd(l.usd) : ""}${l.wall_s != null ? " · " + fmtS(l.wall_s) : ""}`;
-      html += `<div class="cell ${a === r.winner ? "win" : ""}" data-tip="${esc(tipHtml)}"><div class="stack" style="background:transparent">${segs}</div><span class="v num">${a === r.winner ? "★ " : ""}${state.unit === "tok" ? fmtT(v) : fmtUsd(v)}</span></div>`;
+      const v = val(l);
+      const segs = state.unit === "tok" ? TOK.map((k) => `<span style="width:${((l.tok[k] || 0) / max) * 100}%;background:${css("t-" + k)}"></span>`).join("") : `<span style="width:${(v / max) * 100}%;background:var(--accent)"></span>`;
+      const t = `<b>${esc(D.arm_labels[a] || a)}</b><br>` + TOK.map((k) => `${esc(D.token_legend[k] || k)}: ${fmtT(l.tok[k] || 0)}`).join("<br>") + `<br>${fmtUsd(l.usd)}`;
+      html += `<div class="cell ${a === r.winner ? "win" : ""}" data-tip="${esc(t)}"><div class="stack">${segs}</div><span class="v num">${a === r.winner ? "★ " : ""}${state.unit === "tok" ? fmtT(v) : fmtUsd(v)}</span></div>`;
     }
     html += "</div>";
   }
-  const el = $("#matrix"); el.style.gridTemplateColumns = `minmax(150px, 1.1fr) repeat(${arms.length}, minmax(90px, 1fr))`; el.innerHTML = html;
-  $("#tokkeys").innerHTML = TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)}</span>`).join("") + `<span>· bars share one scale · ★ cheapest arm (cost incl. compaction)</span>`;
+  const el = $("#matrix"); el.style.gridTemplateColumns = `minmax(120px, 1.2fr) repeat(${arms.length}, minmax(84px, 1fr))`; el.innerHTML = html;
+  $("#tokkeys").innerHTML = TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)}</span>`).join("") + "<span>★ cheapest</span>";
+  [...$("#unit").children].forEach((x) => x.classList.toggle("on", x.dataset.u === state.unit));
 }
-$("#unit").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; state.unit = b.dataset.u; [...$("#unit").children].forEach((x) => x.classList.toggle("on", x === b)); matrix(); });
+$("#unit").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; state.unit = b.dataset.u; store.set(key + ":unit", state.unit); matrix(); });
 
-/* ---------- fan-out detail ---------- */
-function runDetail() {
-  $("#runchips").innerHTML = D.runs.map((r) => `<button class="chip ${r.id === state.run ? "on" : ""}" data-run="${r.id}"><i style="background:${r.pass ? "var(--good)" : "var(--bad)"}"></i>${r.id}</button>`).join("");
-  const r = D.runs.find((x) => x.id === state.run);
-  if (!r) { $("#rundetail").innerHTML = '<div class="hint">no runs yet</div>'; return; }
-  const sel = D.artifacts[r.why] || {};
-  const maxEig = Math.max(...(sel.table || []).map((t) => t.eig), 1e-9);
-  const cands = (sel.table || []).map((t) => `<div class="cand ${t.T === sel.picked ? "pick" : ""}"><span class="id" data-id="${t.T}">${t.T}</span><span>${t.T === sel.picked ? "▸ " : ""}${esc(t.test)}</span><div data-tip="EIG ${t.eig} bits · score ${t.score}${t.feasible ? "" : " · infeasible: " + esc(t.note)}"><div class="eb" style="width:${(t.eig / maxEig) * 100}%"></div></div><span class="num" style="text-align:right">${t.eig}b · $${t.usd}${t.feasible ? "" : ` <span class="badge no">${esc(t.note)}</span>`}</span></div>`).join("");
-  const tMax = Math.max(...r.lanes.flatMap((l) => l.points.map((p) => p.t1)), 1);
-  const timed = r.lanes.some((l) => l.points.some((p) => p.t1 > 0));
-  const W = 600;
-  const lanes = r.lanes.map((l) => {
-    const n = l.points.length, rh = n > 10 ? 6 : 10, gap = 2, H = n * (rh + gap);
-    let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px">`;
-    l.points.forEach((p, i) => {
-      const x = timed ? (p.t0 / tMax) * W : (i / n) * W, w = timed ? Math.max(((p.t1 - p.t0) / tMax) * W, 2) : W / n - 3, y = timed ? i * (rh + gap) : 0;
-      const fill = p.k === "read" ? "var(--t-read)" : p.k === "write" || p.k === "prewarm" ? "var(--t-write)" : "var(--t-uncached)";
-      const t = `<b>${esc(p.label)}</b> · ${esc(D.legend[p.k] || p.k)}<br>${TOK.map((k) => `${esc(D.token_legend[k] || k)} ${fmtT(p.tok[k] || 0)}`).join(" · ")}<br>${fmtUsd(p.usd)} · ${Math.round(p.t0)}–${Math.round(p.t1)} ms`;
-      svg += `<rect class="req" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${rh}" rx="2" fill="${fill}" ${p.k === "prewarm" ? 'fill-opacity=".45" stroke="var(--t-write)"' : ""} data-l="${esc(l.name)}" data-i="${i}" data-tip="${esc(t)}"/>`;
-    });
-    svg += "</svg>";
-    return `<div class="gantt-lane ${l.name === r.winner ? "win" : ""}"><span class="n">${esc(l.name)}${l.name === r.winner ? " ★" : ""}</span>${svg}<span class="s num">${fmtT(sum(l.tok))} tok · ${l.usd != null ? fmtUsd(l.usd) : ""}<br>${l.wall_s != null ? fmtS(l.wall_s) : ""} · ${n} req</span></div>`;
-  }).join("");
-  const axis = `<div class="gantt-lane" style="border:0;padding-top:0"><span></span><svg viewBox="0 0 ${W} 14" preserveAspectRatio="none" style="height:14px">${[0, .25, .5, .75, 1].map((f) => `<text x="${f * W}" y="11" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}">${Math.round(f * tMax)}ms</text>`).join("")}</svg><span></span></div>`;
-  $("#rundetail").innerHTML = `
-    <div class="runmeta"><span class="t">${ids(r.id)} ${esc(r.test)}</span><span>→ <b>${esc(r.outcome)}</b></span>
-      <span class="badge ${r.pass ? "ok" : "no"}">${r.pass ? "skeptic ✓" : "skeptic ✗"}</span> ${r.review ? ids(r.review) : ""}<span style="color:var(--mute)">why: ${ids(r.why)} ${esc(sel.why || "")}</span></div>
-    <div class="hint" style="font-size:11px;color:var(--mute)">tests compared (expected info gain · est. live $)</div>
-    <div class="cands">${cands}</div>
-    <div class="hint" style="font-size:11px;color:var(--mute);margin-bottom:4px">${timed ? "requests over time (simulated latency) · each bar = one request" : "timing not recorded · one block per request"} · click to inspect</div>
-    ${lanes}${axis}
-    <div class="keys">${Object.entries(D.legend).map(([k, v]) => `<span><i class="sw" style="background:${k === "read" ? "var(--t-read)" : k === "full" ? "var(--t-uncached)" : "var(--t-write)"};${k === "prewarm" ? "opacity:.45" : ""}"></i>${esc(v)}</span>`).join("")}</div>`;
-  $("#rundetail").querySelectorAll(".req").forEach((el) => el.addEventListener("click", () => {
-    $("#rundetail").querySelectorAll(".req.sel").forEach((x) => x.classList.remove("sel")); el.classList.add("sel");
-    const l = r.lanes.find((x) => x.name === el.dataset.l), p = l.points[+el.dataset.i];
-    inspect(`${r.id} · ${l.name} · ${p.label}`, { file: l.file, ...p });
-  }));
+function selectRound(n) {
+  if (!R.some((r) => r.n === n)) return;
+  state.round = n; store.set(key + ":round", String(n));
+  try { history.replaceState(null, "", "#round-" + n); } catch (e) {}
+  map(); rounds(); detail(); confidence(); matrix();
+  const c = $("#col-" + n); if (c) $("#map").scrollTo({ left: c.offsetLeft - 40, behavior: "smooth" });
 }
-function selectRun(id) { if (!id) return; state.run = id; try { history.replaceState(null, "", "#" + id); } catch (e) {} runDetail(); matrix(); $("#rundetail").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
-document.addEventListener("click", (e) => { if (e.target.closest(".id")) return; const t = e.target.closest("[data-run]"); if (t && t.dataset.run) selectRun(t.dataset.run); });
 
-/* ---------- steps ---------- */
-function steps() {
-  $("#rolefilter").innerHTML = ROLES.filter((r) => r !== "board").map((r) => `<button class="chip ${state.roles.has(r) ? "on" : ""}" data-role="${r}"><i style="background:${css("r-" + r)}"></i>${r}</button>`).join("");
-  $("#steps").innerHTML = D.steps.filter((s) => state.roles.has(s.role)).map((s) => `<li><i class="d" style="background:${css("r-" + s.role)}"></i><span class="r">${esc(s.role)}</span><span class="l" title="${esc(s.line)}">${ids(s.line)}</span></li>`).join("") || '<li><span></span><span></span><span class="l">no steps for this filter</span></li>';
-}
-$("#rolefilter").addEventListener("click", (e) => { const b = e.target.closest("[data-role]"); if (!b) return; const r = b.dataset.role; state.roles.has(r) ? state.roles.delete(r) : state.roles.add(r); steps(); });
-
-kpis(); timeChart(); beliefChart(); matrix(); runDetail(); steps();
+nowBanner(); kpis(); map(); rounds(); detail(); confidence(); timeChart(); matrix();
+if (running) { const c = $("#col-" + m.round); if (c) $("#map").scrollLeft = c.offsetLeft - 40; }
+const y0 = parseFloat(store.get(key + ":y")); if (!isNaN(y0)) scrollTo(0, y0);
 </script>
 </body>
 </html>

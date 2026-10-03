@@ -12,6 +12,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from lab import narrate
 from lab.store import Store
 
 TEMPLATE = Path(__file__).with_name("board_template.html")
@@ -172,8 +173,10 @@ def html(store: Store, d: ModuleType) -> str:
         "timeline": [e for e in _ledger(store) if e["event"] == "role"],
         "trajectory": _trajectory(store), "time_by_role": _time_by_role(store), "tokens": _tokens_total(runs),
         "token_legend": getattr(d, "token_legend", {}),
+        "rounds": narrate.rounds(store, d), "belief_table": narrate.beliefs_table(store),
+        "arm_labels": getattr(d, "arm_labels", {}), "point_labels": getattr(d, "point_labels", d.legend),
     }
-    refresh = '<meta http-equiv="refresh" content="3">' if m.get("status") == "running" else ""
+    refresh = '<meta http-equiv="refresh" content="2">' if m.get("status") == "running" else ""
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace("{{REFRESH}}", refresh).replace("{{DATA}}", blob)
 

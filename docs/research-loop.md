@@ -69,25 +69,32 @@ A failed review means the run is discarded (`D:discard`) and never counted.
 `board.md` is the terse version: status, time per role, tokens by type, one
 bar per hypothesis, one glyph per request, one line per step.
 
-`board.html` is self-contained (no server) and interactive:
+`board.html` is self-contained (no server) and interactive. It reads from top
+to bottom as overview → reasoning → detail:
 
-- **KPI strip:**
-  - verdict, or the leading hypothesis while unresolved;
-  - runs accepted and discarded;
-  - time split by role;
-  - tokens split by uncached, cache write, cache read and output;
-  - what the chosen tests would cost on the real API.
-- **Where time goes:** one stacked bar per round, by role (proposer, selector, runner, skeptic, judge, board rendering). Click a bar to open that round's run.
-- **Beliefs over runs:** one line per hypothesis. Refuted hypotheses are dashed, and post-hoc ones start where they were proposed. Hover to highlight.
-- **Where tokens go:** a run × arm matrix of stacked token bars on one shared scale; switch between tokens and $. ★ marks the cheapest arm.
-- **Fan-out:**
-  - the tests that were compared, with information gain and $;
-  - a timeline with one bar per request in each arm, colored by uncached, write, read or pre-warm.
-  - Click a bar to see its raw data point.
-- **Steps:** the step log, filterable by role.
+- **Now:** one line saying what is happening (live phase) or how it ended.
+- **KPI strip:** answer or leading hypothesis, rounds, time by role, tokens by
+  type, and what the chosen tests would cost on the real API.
+- **Research map:** one column per round, from the starting hypotheses to the
+  answer. Each column shows the tests considered (bar = expected information),
+  the one that ran with a mini fan-out (one square per request), the result and
+  audit, and the decision (test again, rethink, stop; ✗ ruled out, + new).
+  While a study runs, the current column pulses and pending nodes are dashed.
+- **Steps:** one card per round, newest first. Each step is one plain sentence
+  with a role icon (Propose, Choose, Run, Audit, Decide) and its artifact IDs.
+  Only the selected round is expanded.
+- **Round N fan-out:** one card per strategy with $, tokens and one square per
+  request (uncached, cache write, cache read, pre-warm); the cheapest is
+  tagged. Below are the audit checks in plain words and, collapsed, the request
+  timeline.
+- **How confident are we in each hypothesis?:** a table of the probability of
+  each hypothesis after every round. ✗ = ruled out, outlined = proposed then.
+- **Where time goes / where tokens go:** seconds per round by role, and a
+  run × strategy matrix of tokens or $.
 
-Every ID opens its artifact in an inspector. The selected run is kept in the
-URL hash.
+Clicking a round anywhere selects it everywhere (kept in the URL hash). Every
+ID and every request square opens its raw data in an inspector. Run with
+`--pace 1` to slow the loop down and watch the board (it refreshes every 2 s).
 
 ## Folder layout
 
@@ -103,7 +110,8 @@ studies/<NNN-name>/
 
 A domain is a module with `question, outcomes, sources, hypotheses, predict,
 feasible, estimate_usd, code_paths, propose_tests, refine, input_version, run,
-audit, short, point_kind, glyph, legend`. See
+audit, short, point_kind, glyph, legend`, plus optional board labels
+(`describe`, `arm_labels`, `outcome_labels`, `check_labels`, `point_labels`). See
 [lab/domains/fanout](../lab/domains/fanout/) and the coin-flip toy domain in
 [tests/test_lab.py](../tests/test_lab.py).
 

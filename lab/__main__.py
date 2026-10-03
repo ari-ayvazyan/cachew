@@ -16,9 +16,10 @@ def main() -> None:
     ap.add_argument("--fresh", action="store_true", help="overwrite an existing study folder")
     ap.add_argument("--max-rounds", type=int, default=8)
     ap.add_argument("--resolve-at", type=float, default=0.95)
+    ap.add_argument("--pace", type=float, default=0.0, help="pause (s) after each step to watch the board live")
     args = ap.parse_args()
     domain = importlib.import_module(f"lab.domains.{args.domain}")
-    last = Study(domain, Path(args.study), max_rounds=args.max_rounds, resolve_at=args.resolve_at).go(args.fresh)
+    last = Study(domain, Path(args.study), max_rounds=args.max_rounds, resolve_at=args.resolve_at, pace=args.pace).go(args.fresh)
     print(f"{last.get('id')}: {last.get('stop') or 'unresolved'} · {last.get('why')}")
     print(f"board: {Path(args.study) / 'board.md'}")
 
