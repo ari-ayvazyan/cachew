@@ -15,10 +15,14 @@ are modified) to:
    per-subagent instruction after it is the only uncached part.
 2. Single-flight the cache write. An entry is readable only once the request
    writing it has started responding, so siblings fired concurrently would
-   each write their own copy. The first request for a prefix goes straight
-   through; a sibling that arrives while it is still in flight runs one
-   ``max_tokens: 0`` pre-warm (prefill only, no output billed) that every
-   other concurrent sibling waits on, then they all read from cache.
+   each write their own copy. The first request for a prefix (the leader)
+   goes straight through; siblings that arrive while it is in flight wait
+   until its entry is readable, then read from cache. Waiting on a
+   non-streaming leader means waiting for its whole response, so once enough
+   siblings are waiting one of them buys latency with a ``max_tokens: 0``
+   pre-warm (prefill only, no output billed) that the rest wait on. That is a
+   second cache write, so it is only sent when the fan-out still costs no
+   more than sending every sibling uncached (see ``min_prewarm_waiters``).
    Coordination is via marker files so it also works across runner processes.
    An orchestrator that knows the shared prefix up front calls ``prewarm()``
    before dispatching its sub-agents, so every sibling reads.
@@ -38,7 +42,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 import os
+import uuid
 import tempfile
 import time
 from collections.abc import AsyncIterator, Iterator
@@ -177,7 +183,28 @@ async def _send_prewarm(headers: dict[str, str], payload: dict[str, Any], base_u
     return sink[-1] if sink else {}
 
 
-async def ensure_warm(headers: dict[str, str], payload: dict[str, Any], base_url: str) -> str | None:
+def min_prewarm_waiters(model: str | None) -> int:
+    """Fewest waiting siblings for which a pre-warm keeps the fan-out no
+    dearer than sending every request uncached.
+
+    In units of the prefix's base input price, leader + pre-warm + k readers
+    cost ``2w + k*r`` against ``k + 1`` uncached, so ``k >= (2w - 1) / (1 - r)``:
+    2 for the 5-minute TTL on every current model, 4 for the 1-hour TTL.
+    Waiting on the leader instead costs ``w + k*r``, which never loses.
+    """
+    from cachew.pricing import PRICES
+
+    w = 2.0 if os.environ.get("CACHEW_TTL") == "1h" else 1.25
+    p = PRICES.get(model or "")
+    r = p.cache_read / p.input if p else 0.1  # 0.1: the highest read ratio priced
+    return max(1, math.ceil((2 * w - 1) / (1 - r) - 1e-9))
+
+
+def _waiters(d: Path, key: str) -> int:
+    return sum(1 for f in d.glob(f"{key}.wait.*") if _fresh(f, _WAIT_FOR_WARM_S + 5))
+
+
+async def ensure_warm(headers: dict[str, str], payload: dict[str, Any], base_url: str, *, streaming: bool = False) -> str | None:
     """Coordinate sibling requests that share a prefix. Returns the prefix key
     when this request is the first (leader) so the caller can mark it warm."""
     if not _prewarm_eligible(payload):
@@ -185,33 +212,56 @@ async def ensure_warm(headers: dict[str, str], payload: dict[str, Any], base_url
     d = _state_dir()
     key = prefix_key(payload)
     warm, inflight, lock = d / f"{key}.warm", d / f"{key}.inflight", d / f"{key}.lock"
+    attempted = d / f"{key}.prewarm.json"  # kept apart from .warm, which the leader re-touches
 
     if _fresh(warm, _WARM_FRESH_S):
         return None
     if not _fresh(inflight, _INFLIGHT_FRESH_S):
-        _touch(inflight)
+        _touch(inflight, "stream" if streaming else "send")
         return key  # leader: no one to share with yet, go straight through
 
-    # A sibling with the same prefix is in flight and the entry isn't readable yet.
+    # A sibling with the same prefix is in flight and the entry isn't readable
+    # yet. A streaming leader marks it warm at its first chunk, before a
+    # pre-warm started now could finish, so only a non-streaming one is worth
+    # racing.
     try:
-        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
+        leader_streams = inflight.read_text() == "stream"
+    except FileNotFoundError:
+        leader_streams = False
+    need = min_prewarm_waiters(payload.get("model"))
+    me = d / f"{key}.wait.{uuid.uuid4().hex}"
+    _touch(me)
+    try:
         deadline = time.monotonic() + _WAIT_FOR_WARM_S
         while time.monotonic() < deadline and not _fresh(warm, _WARM_FRESH_S):
+            if not leader_streams and not _fresh(attempted, _WARM_FRESH_S) and _waiters(d, key) >= need:
+                try:
+                    fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                except FileExistsError:
+                    pass
+                else:
+                    os.close(fd)
+                    me.unlink(missing_ok=True)
+                    await _prewarm_once(headers, payload, base_url, key, warm, attempted, lock)
+                    return None
             await asyncio.sleep(_POLL_S)
-        return None
-    os.close(fd)
+    finally:
+        me.unlink(missing_ok=True)
+    return None
+
+
+async def _prewarm_once(headers: dict[str, str], payload: dict[str, Any], base_url: str, key: str, warm: Path, attempted: Path, lock: Path) -> None:
     try:
         usage = await _send_prewarm(headers, payload, base_url)
-        # Kept apart from the .warm marker, which the leader re-touches.
-        _touch(d / f"{key}.prewarm.json", json.dumps(usage))
+        _touch(attempted, json.dumps(usage))
         _touch(warm)
         _logger.info("cachew: pre-warmed prefix %s (%s)", key, usage)
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        # Don't let the other waiters retry; they keep waiting on the leader.
+        _touch(attempted, json.dumps({"error": str(e)}))
         _logger.warning("cachew: pre-warm failed for %s; continuing uncached", key, exc_info=True)
     finally:
         lock.unlink(missing_ok=True)
-    return None
 
 
 def mark_warm(key: str | None) -> None:
@@ -357,7 +407,7 @@ def install() -> bool:
         return out
 
     async def _stream_request(headers: dict[str, str], payload: dict[str, Any], base_url: str, *a: Any, **kw: Any) -> AsyncIterator[dict[str, Any]]:
-        key = await ensure_warm(headers, payload, base_url)
+        key = await ensure_warm(headers, payload, base_url, streaming=True)
         first = True
         async for chunk in orig_stream_request(headers, payload, base_url, *a, **kw):
             if first:

@@ -7,7 +7,7 @@ caching core (`cachew/`), tests and docs. **All research-related programs and
 results must never be committed.**
 
 - Put topic code (experiment scripts, engines, runners, skeptics, sources) in
-  `topics/<name>/`, which is git-ignored (only `topics/README.md` is tracked).
+  `topics/<name>/`, which is git-ignored.
 - Put every study's output (artifacts, raw data, boards, ledgers) in
   `studies/<NNN-name>/`, which is git-ignored.
 - Put scratch scripts and intermediate results in the session scratchpad, not
@@ -20,5 +20,3 @@ results must never be committed.**
   generic infrastructure and may be committed, but keep topic names, data and
   conclusions out of it.
 - Before any commit, run `git status` and confirm no research file is staged.
-
-See [topics/README.md](topics/README.md) for the topic layout.

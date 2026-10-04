@@ -54,12 +54,9 @@ def _round_index(store: Store) -> dict[str, int]:
 
 
 def _fanout(store: Store, d: ModuleType, r: dict[str, Any]) -> dict[str, Any]:
-    if hasattr(d, "arm_view"):
-        return d.arm_view(store, r)
     arms = []
-    hidden = set(getattr(d, "hidden_parts", ()))
     for name, rel in r["raw"].items():
-        if name in hidden:
+        if name == "compaction":
             continue
         pts = store.raw(rel)["points"]
         kinds = [d.point_kind(p) for p in pts]
@@ -68,10 +65,10 @@ def _fanout(store: Store, d: ModuleType, r: dict[str, Any]) -> dict[str, Any]:
         arms.append({
             "name": name, "label": _lbl(d, "arm_labels", name), "usd": info.get("usd"), "wall_s": info.get("wall_s"),
             "tokens": sum(v for v in tok.values() if isinstance(v, (int, float))), "agents": kinds, "file": rel,
-            "winner": name == r.get("winner"), **({"short": d.arm_short[name]} if name in getattr(d, "arm_short", {}) else {}),
+            "winner": name == r.get("winner"),
         })
     win = next((a for a in arms if a["winner"]), None)
-    base = next((a for a in arms if a["name"] == getattr(d, "baseline", None)), None)
+    base = next((a for a in arms if a["name"] == "naive"), None)
     return {"arms": arms, "winner": win["label"] if win else r["outcome"],
             "saving": (1 - win["usd"] / base["usd"]) if win and base and base["usd"] else None}
 
@@ -144,11 +141,9 @@ def rounds(store: Store, d: ModuleType) -> list[dict[str, Any]]:
         spec = store.get(run["spec"])
         f = _fanout(store, d, run)
         n_agents = spec["params"].get("n")
-        base = _lbl(d, "arm_labels", getattr(d, "baseline", "")) or "baseline"
-        save = f" ({f['saving']:.0%} below {base})" if f.get("saving") else ""
+        save = f" ({f['saving']:.0%} below no cache)" if f["saving"] else ""
         r["run"] = {"id": run["id"], "desc": _desc(d, spec["params"]), "agents": n_agents, "outcome": _lbl(d, "outcome_labels", run["outcome"]), **f}
-        text = f.get("sentence") or f"Ran {_desc(d, spec['params'])} ({len(f['arms'])} arms) → {f['winner']}{save}"
-        r["steps"]["run"] = {"text": text,
+        r["steps"]["run"] = {"text": f"Sent the same {n_agents} tasks through {len(f['arms'])} strategies → cheapest: {f['winner']}{save}",
                              "ids": [run["id"], run["spec"]]}
 
     for k in store.all("K"):

@@ -98,6 +98,71 @@ class TestFanout(PatchTestBase):
         self.assertLessEqual(len(writers), 2, "leader + one pre-warm, not N writes")
         self.assertGreaterEqual(len(readers), len(TASKS) - 2)
 
+    async def fanout_n(self, n: int) -> list[dict]:
+        return await asyncio.gather(*(self.call(subagent_messages(SYSTEM, BRIEF, f"Task {i}: only part {i}.")) for i in range(n)))
+
+    def cost(self) -> float:
+        return cost_usd(add_usage(*(r["usage"] for r in self.fake.requests)), MODEL)
+
+    async def test_two_siblings_wait_for_leader_instead_of_prewarming(self) -> None:
+        # Regression (study 002, R-006): leader write + pre-warm write + read
+        # cost more than two uncached requests.
+        await self.fanout_n(2)
+        naive = self.cost()
+        self.fake.requests.clear()
+        self.fake.entries.clear()
+        patch.install()
+        await self.fanout_n(2)
+        self.assertFalse(any(r["prewarm"] for r in self.fake.requests))
+        writers = [r for r in self.fake.requests if r["usage"]["cache_creation_input_tokens"] > 0]
+        readers = [r for r in self.fake.requests if r["usage"]["cache_read_input_tokens"] > 0]
+        self.assertEqual((len(writers), len(readers)), (1, 1))
+        self.assertLess(self.cost(), naive)
+
+    async def test_three_siblings_prewarm_and_stay_below_uncached(self) -> None:
+        await self.fanout_n(3)
+        naive = self.cost()
+        self.fake.requests.clear()
+        self.fake.entries.clear()
+        patch.install()
+        await self.fanout_n(3)
+        self.assertEqual(sum(r["prewarm"] for r in self.fake.requests), 1)
+        self.assertLess(self.cost(), naive)
+
+    async def test_one_hour_ttl_needs_more_waiters_before_prewarming(self) -> None:
+        os.environ["CACHEW_TTL"] = "1h"
+        self.addCleanup(os.environ.pop, "CACHEW_TTL")
+        self.assertEqual(patch.min_prewarm_waiters(MODEL), 4)
+        patch.install()
+        await self.fanout_n(4)  # 3 waiters: a 2x pre-warm would cost more than uncached
+        self.assertFalse(any(r["prewarm"] for r in self.fake.requests))
+
+    def test_min_prewarm_waiters_keeps_every_model_below_uncached(self) -> None:
+        from cachew.pricing import PRICES
+
+        for model, p in [*PRICES.items(), ("unknown-model", None)]:
+            k = patch.min_prewarm_waiters(model)
+            self.assertEqual(k, 2, model)
+            r = p.cache_read / p.input if p else 0.1
+            self.assertLessEqual(2 * 1.25 + k * r, k + 1, model)  # pre-warm allowed: still <= uncached
+            self.assertGreater(2 * 1.25 + (k - 1) * r, k, model)  # one fewer waiter: it would not be
+
+    async def test_streaming_leader_is_never_raced_with_a_prewarm(self) -> None:
+        payload = patch.apply_cache_breakpoints({
+            "model": MODEL, "max_tokens": 100, "stream": True,
+            "system": SYSTEM, "messages": [{"role": "user", "content": BRIEF}, {"role": "assistant", "content": "ok"}, {"role": "user", "content": "t"}],
+        })
+        key = await patch.ensure_warm({}, payload, "https://api.anthropic.com/v1", streaming=True)
+        self.assertIsNotNone(key)
+
+        async def first_chunk() -> None:
+            await asyncio.sleep(0.2)
+            patch.mark_warm(key)
+
+        followers = [patch.ensure_warm({}, payload, "https://api.anthropic.com/v1", streaming=True) for _ in range(5)]
+        await asyncio.gather(first_chunk(), *followers)
+        self.assertEqual(self.fake.requests, [], "followers waited for the leader's first chunk")
+
     async def test_concurrent_fanout_small_brief_still_single_flights(self) -> None:
         # Regression: a ~1.5K-token brief fell under the old pre-warm threshold
         # while still being cacheable, so all N siblings wrote the cache.
