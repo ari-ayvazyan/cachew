@@ -140,6 +140,25 @@ Runs the four arms through Omnigent's real adapter against the API and writes
 `usage`. Exits non-zero if any cached arm failed to read from cache. Costs
 roughly $1–3 on Opus 5.5 (`--model claude-sonnet-5-5` halves it).
 
+## autolab: automated research with an Omnigent agent team
+
+`autolab/` uses Omnigent for real orchestration:
+
+- **The team.** A PI agent dispatches parallel scouts, theorists and skeptics (3 each by default, each with its own angle), a lead theorist, an experimenter and a judge. They plan CPU-scale ML experiments, pre-register predictions, audit the raw results and update their credence in each hypothesis.
+- **You approve every experiment before it runs.** The driver runs approved experiments in a bubblewrap sandbox. Agents have no shell, and each role may write only its own files, which its MCP server enforces.
+
+```bash
+uv pip install --python .venv/bin/python -e '.[experiments]' \
+  --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
+.venv/bin/autolab new my-study "Does X improve Y for small Z on CPU?"
+.venv/bin/autolab plan my-study            # agents plan; then read: autolab show my-study
+.venv/bin/autolab approve my-study --run   # run, audit, judge
+.venv/bin/autolab next my-study            # next round
+.venv/bin/autolab ui                       # or do all of it in the browser, with a live graph of the team
+```
+
+Docs: [docs/autolab.md](docs/autolab.md). Open `studies/<name>/board.html` to follow progress.
+
 ## Research loop (`lab/`)
 
 A domain-agnostic research loop built on top of Cachew:
