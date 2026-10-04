@@ -114,12 +114,9 @@ class Study:
         hyps = {h: weights[h] for h in ho["hypotheses"]}
         live = normalize(hyps)
         rows = []
-        used = {x["data_version"]: r["id"] for r in self.store.all("R") for x in [self.store.get(r["spec"])]}
         for t in ho["proposals"]:
             params = self.store.get(t)["params"]
             ok, why = self.d.feasible(params)
-            if ok and (dup := used.get(self.d.input_version(params, 0))):
-                ok, why = False, f"same data as {dup}: no new evidence"
             preds = {h: self.d.predict(self.store.get(h)["rule"], params) for h in live}
             eig = expected_info_gain(live, preds)
             usd = self.d.estimate_usd(params)

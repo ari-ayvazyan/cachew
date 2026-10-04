@@ -150,10 +150,9 @@ A domain-agnostic research loop built on top of Cachew:
 - a judge, separate from the proposer, whose every decision cites run IDs;
 - an interactive progress board showing where time and tokens go.
 
-Research topics live outside git, in [topics/](topics/README.md) or any other
-folder. Fan-outs use `lab.fanout`: one cached prefix shared by all sub-agents,
-plus a spend cap. Design: [docs/research-loop.md](docs/research-loop.md).
+Design: [docs/research-loop.md](docs/research-loop.md). Studies:
+[studies/](studies/README.md).
 
 ```bash
-.venv/Scripts/python.exe -m lab --topic <name or folder> --study studies/001-my-question
+.venv/Scripts/python.exe -m lab --study studies/003-my-run
 ```

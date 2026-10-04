@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx  # noqa: E402
 
 from cachew import fake_api  # noqa: E402
-from lab import fanout, infogain, topic  # noqa: E402
+from lab import infogain  # noqa: E402
 from lab.loop import Study  # noqa: E402
 from lab.roles import PROPOSER, RUNNER, SELECTOR, SKEPTIC, SeparationError, assert_independent  # noqa: E402
 from lab.store import Store, TooLarge  # noqa: E402
@@ -32,7 +32,7 @@ def coin_domain(true_p: float, rules: list[float]) -> SimpleNamespace:
     def run(store: Store, rid: str, spec: dict) -> dict:
         rng = random.Random(spec["seed"])
         outcome = "heads" if rng.random() < true_p else "tails"
-        return {"spec": spec["id"], "outcome": outcome, "data_version": f"flip{spec['params']['flip']}", "raw": {"flip": store.put_raw(rid, "flip", {"points": [{"usage": {}, "o": outcome}]})}}
+        return {"spec": spec["id"], "outcome": outcome, "data_version": "v", "raw": {"flip": store.put_raw(rid, "flip", {"points": [{"usage": {}, "o": outcome}]})}}
 
     return SimpleNamespace(
         name="coin", question="Coin bias?", outcomes=["heads", "tails"], sources={}, code_paths=["lab"],
@@ -41,7 +41,7 @@ def coin_domain(true_p: float, rules: list[float]) -> SimpleNamespace:
         predict=lambda rule, params: {"heads": rule["p"], "tails": 1 - rule["p"]},
         feasible=lambda params: (True, "ok"), estimate_usd=lambda params: 0.0,
         propose_tests=lambda tried, r: [{"params": {"flip": len(tried) + i}, "why": "next flip"} for i in range(2)],
-        refine=lambda store, runs: None, input_version=lambda params, seed: f"flip{params['flip']}",
+        refine=lambda store, runs: None, input_version=lambda params, seed: "v",
         run=run, audit=lambda store, spec, result: [{"check": "ok", "ok": True, "detail": ""}],
         short=lambda params: f"flip {params['flip']}", point_kind=lambda p: "full", glyph=lambda p: "●", legend={"full": "flip"},
     )
@@ -103,15 +103,6 @@ class TestLoop(TempDir):
         last = Study(coin_domain(0.5, [0.6, 0.4]), self.dir / "s", max_rounds=2).go()
         self.assertEqual(last["stop"], "unresolved")
 
-    def test_same_data_is_not_counted_twice(self) -> None:
-        d = coin_domain(0.9, [0.9, 0.1])
-        d.input_version = lambda params, seed: "same"
-        d.run = (lambda run: lambda store, rid, spec: {**run(store, rid, spec), "data_version": "same"})(d.run)
-        last = Study(d, self.dir / "s", max_rounds=20).go()
-        self.assertEqual((last["kind"], last["stop"]), ("stop", "unresolved"))
-        self.assertEqual(len(Store(self.dir / "s").all("R")), 1)
-        self.assertIn("same data as R-001", last["table"][0]["note"])
-
     def test_stops_unresolved_when_no_test_discriminates(self) -> None:
         last = Study(coin_domain(0.5, [0.5]), self.dir / "s").go()  # 'p0.5' and 'none' predict the same
         self.assertEqual((last["kind"], last["stop"]), ("stop", "unresolved"))
@@ -129,53 +120,59 @@ class TestLoop(TempDir):
             Study(coin_domain(0.9, [0.9]), self.dir / "s").go()
 
 
-class TestTopicLoader(TempDir):
-    def test_topic_loads_from_any_folder_with_relative_imports(self) -> None:
-        pkg = self.dir / "mytopic"
-        pkg.mkdir()
-        (pkg / "rules.py").write_text("QUESTION = 'Does it work?'\n")
-        (pkg / "__init__.py").write_text("from .rules import QUESTION as question\n")
-        self.assertEqual(topic.load(str(pkg)).question, "Does it work?")
+class TestFanoutSkeptic(TempDir):
+    """One real fan-out run (fake API), then tamper with it and see the skeptic object."""
 
-    def test_missing_topic_is_a_clear_error(self) -> None:
-        with self.assertRaises(SystemExit):
-            topic.load(str(self.dir / "nope"))
+    @classmethod
+    def setUpClass(cls) -> None:
+        import lab.domains.fanout as fanout
 
+        cls.d = fanout
+        cls.root = Path(tempfile.mkdtemp())
+        study = Study(fanout, cls.root)
+        study.setup()
+        cls.store = study.store
+        ho = study.propose(1, None)
+        _, cls.x = study.select(ho)
+        study.run(cls.x)
+        cls.rid = "R-001"
 
-class TestCachedFanout(unittest.TestCase):
-    """The generic fan-out helper against the caching-aware fake API: siblings must read the shared prefix."""
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.root, True)
 
-    def run_fanout(self, n: int) -> dict:
-        fake = fake_api.FakeAnthropic(min_tokens=512).install()
-        try:
-            with mock.patch.dict("os.environ", {"ANTHROPIC_API_KEY": "fake"}):
-                return fanout.run("You are a sub-agent.", "shared brief " * 1500, {f"sub:{i}": f"task {i}" for i in range(n)},
-                                  model="claude-haiku-4-5", max_tokens=20, live=False)
-        finally:
-            fake.uninstall()
+    def audit(self, result: dict) -> dict[str, bool]:
+        return {c["check"]: c["ok"] for c in self.d.audit(self.store, self.store.get(self.x), result)}
 
-    def test_siblings_read_the_shared_prefix(self) -> None:
-        out = self.run_fanout(6)
-        check = fanout.cache_check(out["calls"], 6)
-        self.assertTrue(check["ok"], check["detail"])
-        self.assertLess(out["summary"]["usd"], out["summary"]["usd_if_uncached"])
+    def test_clean_run_passes(self) -> None:
+        self.assertTrue(all(self.audit(self.store.get(self.rid)).values()))
 
-    def test_no_cache_reads_fail_the_check(self) -> None:
-        calls = [{"label": f"sub:{i}", "usage": {"cache_creation_input_tokens": 5000, "cache_read_input_tokens": 0}} for i in range(6)]
-        self.assertFalse(fanout.cache_check(calls, 6)["ok"])
+    def test_inflated_claim_is_caught(self) -> None:
+        r = self.store.get(self.rid)
+        r["arms"]["compact_cache"]["usd"] *= 0.5
+        self.assertFalse(self.audit(r)["claims_match_raw"])
 
-    def test_ledger_refuses_to_overspend(self) -> None:
-        with tempfile.TemporaryDirectory() as d:
-            ledger = fanout.Ledger(Path(d) / "spend.json", 0.10)
-            ledger.charge(0.08)
-            with self.assertRaises(fanout.BudgetExceeded):
-                ledger.check(0.05)
+    def test_cache_leak_is_caught(self) -> None:
+        r = self.store.get(self.rid)
+        raw = self.store.raw(r["raw"]["naive"])
+        raw["points"][0]["cc_on_task"] = True
+        r["raw"] = {**r["raw"], "naive": self.store.put_raw(self.rid, "naive_tampered", raw)}
+        self.assertFalse(self.audit(r)["no_leakage"])
+
+    def test_intervention_not_running_is_caught(self) -> None:
+        r = self.store.get(self.rid)
+        raw = self.store.raw(r["raw"]["compact_cache"])
+        for p in raw["points"]:
+            p["usage"]["cache_creation_input_tokens"] += p["usage"]["cache_read_input_tokens"]
+            p["usage"]["cache_read_input_tokens"] = 0
+        r["raw"] = {**r["raw"], "compact_cache": self.store.put_raw(self.rid, "cc_tampered", raw)}
+        self.assertFalse(self.audit(r)["intervention_ran"])
 
 
 class TestFakeClock(unittest.IsolatedAsyncioTestCase):
     async def test_entry_readable_once_prewarm_returns_even_if_sleep_wakes_early(self) -> None:
-        # Regression: asyncio.sleep can wake a clock tick early on Windows, so a pre-warm
-        # returned before its own cache entry was readable.
+        # Regression for study 001 (R-003, R-005): asyncio.sleep woke a clock tick early on
+        # Windows, so a pre-warm returned before its own cache entry was readable.
         async def no_sleep(_: float) -> None:
             return None
 

@@ -218,7 +218,7 @@ svg text { font: 10px "JetBrains Mono", ui-monospace, monospace; fill: var(--mut
       <div id="timechart"></div><div class="keys" id="rolekeys"></div>
     </div>
     <div class="card">
-      <div class="ch"><div><h2>Where tokens go</h2><div class="sub2" id="toksub"></div></div><div class="seg-ctl" id="unit"><button data-u="tok" class="on">tokens</button><button data-u="usd">$</button></div></div>
+      <div class="ch"><div><h2>Where tokens go</h2><div class="sub2">Per run and strategy, one shared scale</div></div><div class="seg-ctl" id="unit"><button data-u="tok" class="on">tokens</button><button data-u="usd">$</button></div></div>
       <div class="matrix" id="matrix"></div><div class="keys" id="tokkeys"></div>
     </div>
   </section>
@@ -241,13 +241,6 @@ const STEPS = [["propose", "Propose", "proposer", "P"], ["choose", "Choose", "se
 const ROLES = ["proposer", "selector", "runner", "skeptic", "judge", "board"];
 const TOK = Object.keys(D.token_legend).length ? Object.keys(D.token_legend) : Object.keys(D.tokens);
 const m = D.meta, R = D.rounds, hyps = D.hypotheses;
-const T = Object.assign({ win_tag: "best", result: "Result:", detail_title: "result", square: "one square = one request", kpi_tokens: "Tokens",
-  kpi_cost: "API cost", kpi_cost_sub: "estimated for the tests that ran", tokens_sub: "Per run and arm, one shared scale", time_runner: "runner",
-  saving: "cheaper than the baseline", timeline: "Request timeline" }, D.text || {});
-const HIDDEN = new Set(D.hidden_parts || []);
-const kc = (k) => (D.point_colors || {})[k] || `var(--k-${k})`;
-const armVal = (a) => a.value ?? a.usd ?? 0;
-const armFmt = (a) => a.value_fmt ?? fmtUsd(a.usd);
 const running = m.status === "running";
 const resolved = /resolved/.test(m.status || "") && !/unresolved/.test(m.status || "");
 const roundTime = {};
@@ -315,19 +308,20 @@ function kpis() {
       <div class="big num">${totalS ? fmtS(totalS) : "—"}</div>
       ${totalS ? stackBar(roleParts, (k) => css("r-" + k), fmtS) : '<div class="sub">not recorded</div>'}
       <div class="keys">${Object.entries(roleParts).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => `<span><i class="sw" style="background:${css("r-" + k)}"></i>${k} <b>${((v / totalS) * 100).toFixed(0)}%</b></span>`).join("")}</div></div>
-    <div class="card kpi"><div class="lbl">${esc(T.kpi_tokens)}</div>
+    <div class="card kpi"><div class="lbl">Tokens (simulated)</div>
       <div class="big num">${fmtT(sum(D.tokens))}</div>
       ${stackBar(D.tokens, (k) => css("t-" + k))}
-      <div class="keys">${TOK.slice().sort((a, b) => (D.tokens[b] || 0) - (D.tokens[a] || 0)).slice(0, 2).map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
-    <div class="card kpi"><div class="lbl">${esc(T.kpi_cost)}</div>
-      <div class="big num">${fmtUsd(D.actual_usd ?? liveUsd)}</div>
-      <div class="sub">${esc(T.kpi_cost_sub)}</div></div>`;
+      <div class="keys">${TOK.slice(0, 2).map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
+    <div class="card kpi"><div class="lbl">Real-API cost</div>
+      <div class="big num">${fmtUsd(liveUsd)}</div>
+      <div class="sub">if the tests that ran used the real API</div></div>`;
 }
 
 /* ---- research map ---- */
+const SHORT_ARM = { naive: "No cache", cache_only: "Raw cache", compact_only: "Compact", compact_cache: "Compact+C" };
 const decClass = (d) => !d ? "" : d.kind === "stop" ? (d.stop === "resolved" ? "good" : "bad") : d.kind === "refine" ? "rethink" : d.kind === "discard" ? "bad" : "";
 function miniFanout(run) {
-  return `<div class="mini">${run.arms.map((a) => `<div class="r ${a.winner ? "win" : ""}" data-tip="<b>${esc(a.label)}</b> ${esc(armFmt(a))}${a.winner ? " · " + esc(T.win_tag) : ""}"><span>${esc(a.short || a.label)}</span><span class="sq">${a.agents.map((k) => `<i style="background:${kc(k)}"></i>`).join("")}</span></div>`).join("")}</div>`;
+  return `<div class="mini">${run.arms.map((a) => `<div class="r ${a.winner ? "win" : ""}" data-tip="<b>${esc(a.label)}</b> ${fmtUsd(a.usd)}${a.winner ? " · cheapest" : ""}"><span>${esc(SHORT_ARM[a.name] || a.label)}</span><span class="sq">${a.agents.map((k) => `<i class="k-${k}"></i>`).join("")}</span></div>`).join("")}</div>`;
 }
 function map() {
   const initial = hyps.filter((h) => !h.post_hoc);
@@ -343,10 +337,10 @@ function map() {
       ? `<div class="node" data-round="${r.n}"><div class="lbl"><span>Considered ${r.candidates.length}</span><span>info</span></div>${newH.length ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px">+ new hypothesis ${idList(newH)}</div>` : ""}${r.candidates.map((c) => `<div class="cand ${c.picked ? "pick" : ""} ${c.feasible ? "" : "no"}" data-tip="<b>${esc(c.desc)}</b><br>expected info: ${c.eig} bits · real-API $${c.usd}${c.feasible ? "" : "<br>skipped: " + esc(c.note)}"><div>${c.picked ? "▸ " : ""}${esc(c.desc.replace(" history", ""))}<div class="bar" style="width:${(c.eig / maxE) * 100}%"></div></div><span class="e num">${c.eig.toFixed(2)}</span></div>`).join("")}</div>`
       : `<div class="node pending"><span class="${live ? "pulse" : ""}">Considering tests…</span></div>`;
     const ran = r.run
-      ? `<div class="node" data-round="${r.n}"><div class="lbl"><span>Ran</span><span>${esc(r.run.ran_label || r.run.agents + " agents × 4")}</span></div>${miniFanout(r.run)}</div>`
+      ? `<div class="node" data-round="${r.n}"><div class="lbl"><span>Ran</span><span>${r.run.agents} agents × 4</span></div>${miniFanout(r.run)}</div>`
       : `<div class="node pending">${live && pick ? `<span class="pulse">Running ${esc(pick.desc)}…</span>` : "Not run"}</div>`;
     const result = r.run
-      ? `<div class="node ${r.audit && !r.audit.pass ? "bad" : ""}" data-round="${r.n}"><div class="lbl"><span>Result</span><span>${r.audit ? (r.audit.pass ? '<span style="color:var(--good)">audit ✓</span>' : '<span style="color:var(--bad)">audit ✗</span>') : '<span class="pulse">auditing</span>'}</span></div><div style="font-size:12.5px">${esc(T.result)} <b>${esc(r.run.winner)}</b></div></div>`
+      ? `<div class="node ${r.audit && !r.audit.pass ? "bad" : ""}" data-round="${r.n}"><div class="lbl"><span>Result</span><span>${r.audit ? (r.audit.pass ? '<span style="color:var(--good)">audit ✓</span>' : '<span style="color:var(--bad)">audit ✗</span>') : '<span class="pulse">auditing</span>'}</span></div><div style="font-size:12.5px">Cheapest: <b>${esc(r.run.winner)}</b></div></div>`
       : `<div class="node pending">—</div>`;
     const d = r.decision;
     const decide = d
@@ -383,33 +377,31 @@ function detail() {
   const el = $("#detail");
   if (!r) { el.innerHTML = '<h2>Fan-out</h2><div class="sub2">Pick a round.</div>'; return; }
   if (!r.run) { el.innerHTML = `<h2>Round ${r.n}</h2><div class="lead">${running ? '<span class="pulse">Choosing and running the test…</span>' : esc(r.summary)}</div>`; return; }
-  const run = r.run, max = Math.max(...run.arms.map(armVal), 1e-9);
+  const run = r.run, max = Math.max(...run.arms.map((a) => a.usd || 0), 1e-9);
   const pl = D.point_labels || {};
   const cards = run.arms.map((a) => {
     const counts = {}; a.agents.forEach((k) => counts[k] = (counts[k] || 0) + 1);
     const cap = Object.entries(counts).map(([k, v]) => `${v} ${esc(pl[k] || k)}`).join(" · ");
-    return `<div class="arm ${a.winner ? "win" : ""}">${a.winner ? `<span class="tag">${esc(T.win_tag)}</span>` : ""}<div class="an">${esc(a.label)}</div><div class="au num">${esc(armFmt(a))}</div><div class="at num">${a.sub != null ? esc(a.sub) : fmtT(a.tokens) + " tokens" + (a.wall_s != null ? " · " + fmtS(a.wall_s) : "")}</div><div class="rel"><span style="width:${(armVal(a) / max) * 100}%"></span></div><div class="agents">${a.agents.map((k, i) => `<button style="background:${kc(k)}" aria-label="request ${i + 1}: ${esc(pl[k] || k)}" data-arm="${esc(a.name)}" data-i="${i}" data-tip="${esc(pl[k] || k)} · click for raw data"></button>`).join("")}</div><div class="ac">${cap}</div></div>`;
+    return `<div class="arm ${a.winner ? "win" : ""}">${a.winner ? '<span class="tag">cheapest</span>' : ""}<div class="an">${esc(a.label)}</div><div class="au num">${fmtUsd(a.usd)}</div><div class="at num">${fmtT(a.tokens)} tokens${a.wall_s != null ? " · " + fmtS(a.wall_s) : ""}</div><div class="rel"><span style="width:${((a.usd || 0) / max) * 100}%"></span></div><div class="agents">${a.agents.map((k, i) => `<button class="k-${k}" aria-label="request ${i + 1}: ${esc(pl[k] || k)}" data-arm="${esc(a.name)}" data-i="${i}" data-tip="${esc(pl[k] || k)} · click for raw data"></button>`).join("")}</div><div class="ac">${cap}</div></div>`;
   }).join("");
-  const save = run.saving != null && run.saving > 0 ? `, ${(run.saving * 100).toFixed(0)}% ${esc(T.saving)}` : "";
+  const save = run.saving != null && run.saving > 0 ? `, ${(run.saving * 100).toFixed(0)}% cheaper than no cache` : "";
   const checks = r.audit ? `<ul class="checks">${r.audit.checks.map((c) => `<li data-tip="${esc(c.detail)}"><span class="${c.ok ? "ok" : "no"}">${c.ok ? "✓" : "✗"}</span>${esc(c.label)}</li>`).join("")}</ul>` : "";
   const runData = D.runs.find((x) => x.id === run.id);
   let timeline = "";
   if (runData) {
     const tMax = Math.max(...runData.lanes.flatMap((l) => l.points.map((p) => p.t1)), 1);
-    if (tMax > 1) timeline = `<details><summary>${esc(T.timeline)}</summary>${runData.lanes.map((l) => {
+    if (tMax > 1) timeline = `<details><summary>Request timeline (simulated latency)</summary>${runData.lanes.map((l) => {
       const n = l.points.length, rh = 5, H = n * (rh + 2);
-      return `<div class="gl"><span>${esc(D.arm_labels[l.name] || l.name)}</span><svg viewBox="0 0 400 ${H}" preserveAspectRatio="none" style="height:${H}px">${l.points.map((p, i) => `<rect x="${(p.t0 / tMax) * 400}" y="${i * (rh + 2)}" width="${Math.max(((p.t1 - p.t0) / tMax) * 400, 2)}" height="${rh}" rx="1.5" fill="${kc(p.k)}" data-tip="${esc(p.label)} · ${esc(pl[p.k] || p.k)}<br>${Math.round(p.t0)}–${Math.round(p.t1)} ms"/>`).join("")}</svg><span class="s num">${l.wall_s != null ? fmtS(l.wall_s) : ""}</span></div>`;
+      return `<div class="gl"><span>${esc(D.arm_labels[l.name] || l.name)}</span><svg viewBox="0 0 400 ${H}" preserveAspectRatio="none" style="height:${H}px">${l.points.map((p, i) => `<rect x="${(p.t0 / tMax) * 400}" y="${i * (rh + 2)}" width="${Math.max(((p.t1 - p.t0) / tMax) * 400, 2)}" height="${rh}" rx="1.5" fill="${css("k-" + p.k)}" data-tip="${esc(p.label)} · ${esc(pl[p.k] || p.k)}<br>${Math.round(p.t0)}–${Math.round(p.t1)} ms"/>`).join("")}</svg><span class="s num">${l.wall_s != null ? fmtS(l.wall_s) : ""}</span></div>`;
     }).join("")}<div class="gl"><span></span><span class="sub2 num" style="display:flex;justify-content:space-between"><span>0ms</span><span>${Math.round(tMax)}ms</span></span><span></span></div></details>`;
   }
   el.innerHTML = `
-    <div class="ch"><div><h2>Round ${r.n} ${esc(T.detail_title)}</h2><div class="sub2">${esc(run.desc)} · <span class="id" data-id="${run.id}">${run.id}</span></div></div>${r.audit ? `<span class="pill" style="color:${r.audit.pass ? "var(--good)" : "var(--bad)"}">${r.audit.pass ? "✓ audit passed" : "✗ audit failed"} <span class="id" data-id="${r.audit.id}">${r.audit.id}</span></span>` : ""}</div>
-    <div class="lead">${run.lead || `${esc(run.desc)}: ${run.arms.length} arm(s). ${esc(T.result)} <b>${esc(run.winner)}</b>${save}.`}</div>
+    <div class="ch"><div><h2>Round ${r.n} fan-out</h2><div class="sub2">${esc(run.desc)} · <span class="id" data-id="${run.id}">${run.id}</span></div></div>${r.audit ? `<span class="pill" style="color:${r.audit.pass ? "var(--good)" : "var(--bad)"}">${r.audit.pass ? "✓ audit passed" : "✗ audit failed"} <span class="id" data-id="${r.audit.id}">${r.audit.id}</span></span>` : ""}</div>
+    <div class="lead">The same <b>${run.agents} tasks</b> went through each of the 4 strategies. Cheapest: <b>${esc(run.winner)}</b>${save}.</div>
     <div class="arms">${cards}</div>
-    <div class="keys" style="margin-top:12px">${Object.entries(pl).map(([k, v]) => `<span><i class="sw" style="background:${kc(k)}"></i>${esc(v)}</span>`).join("")}<span>· ${esc(T.square)}</span></div>
+    <div class="keys" style="margin-top:12px">${Object.entries(pl).map(([k, v]) => `<span><i class="sw k-${k}"></i>${esc(v)}</span>`).join("")}<span>· one square = one request</span></div>
     ${checks}${timeline}`;
   el.querySelectorAll(".agents button").forEach((b) => b.addEventListener("click", () => {
-    const arm = run.arms.find((a) => a.name === b.dataset.arm);
-    if (arm.agent_info) { inspect(`${run.id} · ${arm.label} · ${arm.agent_info[+b.dataset.i].patient || b.dataset.i}`, { file: arm.file, ...arm.agent_info[+b.dataset.i] }); return; }
     const lane = runData.lanes.find((l) => l.name === b.dataset.arm), p = lane.points[+b.dataset.i];
     inspect(`${run.id} · ${D.arm_labels[lane.name] || lane.name} · ${p.label}`, { file: lane.file, ...p });
   }));
@@ -454,12 +446,12 @@ function timeChart() {
     svg += `<text x="${x + 6}" y="${y + 12}">${fmtS(sum(roundTime[k]))}</text>`;
   });
   $("#timechart").innerHTML = svg + "</svg>";
-  $("#rolekeys").innerHTML = ROLES.filter((r) => D.time_by_role[r]).map((r) => `<span><i class="sw" style="background:${css("r-" + r)}"></i>${r === "runner" ? T.time_runner : r === "board" ? "board updates" : r} <b>${fmtS(D.time_by_role[r])}</b></span>`).join("");
+  $("#rolekeys").innerHTML = ROLES.filter((r) => D.time_by_role[r]).map((r) => `<span><i class="sw" style="background:${css("r-" + r)}"></i>${r === "runner" ? "runner (API calls)" : r === "board" ? "board updates" : r} <b>${fmtS(D.time_by_role[r])}</b></span>`).join("");
 }
 function matrix() {
-  const arms = [...new Set(D.runs.flatMap((r) => r.lanes.map((l) => l.name)))].filter((a) => !HIDDEN.has(a) && D.runs.some((r) => r.lanes.some((l) => l.name === a && sum(l.tok) > 0)));
+  const arms = [...new Set(D.runs.flatMap((r) => r.lanes.map((l) => l.name)))].filter((a) => a !== "compaction");
   const val = (l) => state.unit === "tok" ? sum(l.tok) : (l.usd || 0);
-  const max = Math.max(...D.runs.flatMap((r) => r.lanes.filter((l) => !HIDDEN.has(l.name)).map(val)), 1e-9);
+  const max = Math.max(...D.runs.flatMap((r) => r.lanes.filter((l) => l.name !== "compaction").map(val)), 1e-9);
   const roundOfRun = Object.fromEntries(R.filter((r) => r.run).map((r) => [r.run.id, r.n]));
   let html = `<div class="hd">round</div>${arms.map((a) => `<div class="hd">${esc(D.arm_labels[a] || a)}</div>`).join("")}`;
   for (const r of D.runs.slice().reverse()) {
@@ -476,8 +468,7 @@ function matrix() {
     html += "</div>";
   }
   const el = $("#matrix"); el.style.gridTemplateColumns = `minmax(120px, 1.2fr) repeat(${arms.length}, minmax(84px, 1fr))`; el.innerHTML = html;
-  $("#tokkeys").innerHTML = TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)}</span>`).join("") + `<span>★ ${esc(T.win_tag)}</span>`;
-  $("#toksub").textContent = T.tokens_sub;
+  $("#tokkeys").innerHTML = TOK.map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)}</span>`).join("") + "<span>★ cheapest</span>";
   [...$("#unit").children].forEach((x) => x.classList.toggle("on", x.dataset.u === state.unit));
 }
 $("#unit").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; state.unit = b.dataset.u; store.set(key + ":unit", state.unit); matrix(); });
