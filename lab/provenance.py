@@ -27,7 +27,7 @@ def code_version(paths: list[str]) -> dict[str, str]:
         files += sorted(q.rglob("*.py")) if q.is_dir() else [q]
     h = hashlib.sha256()
     for f in files:
-        h.update(f.relative_to(REPO).as_posix().encode())
+        h.update((f.relative_to(REPO) if f.is_relative_to(REPO) else f.relative_to(f.parent.parent)).as_posix().encode())
         h.update(f.read_bytes())
     return {"git": head or "none", "tree": h.hexdigest()[:12]}
 

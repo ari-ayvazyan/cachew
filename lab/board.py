@@ -82,7 +82,7 @@ def _points(store: Store, d: ModuleType) -> list[dict[str, Any]]:
             tok: dict[str, float] = {}
             for p in pts:
                 tok = _add(tok, p["tok"])
-            usd = r.get("arms", {}).get(part, {}).get("usd", r.get("compaction_usd") if part == "compaction" else None)
+            usd = r.get("arms", {}).get(part, {}).get("usd", r.get(f"{part}_usd", raw.get("usd")))
             lanes.append({"name": part, "file": rel, "usd": usd, "wall_s": raw.get("wall_s"), "tok": tok, "points": pts})
         runs.append({"id": r["id"], "test": d.short(spec["params"]), "why": spec["decision"], "outcome": r["outcome"],
                      "winner": r.get("winner"), "review": reviews.get(r["id"], {}).get("id"),
@@ -117,6 +117,11 @@ def _trajectory(store: Store) -> list[dict[str, Any]]:
     return out
 
 
+def _glyphs(d: ModuleType, points: list[dict[str, Any]], cap: int = 40) -> str:
+    g = "".join(d.glyph(p) for p in points[:cap])
+    return g + (f"…+{len(points) - cap}" if len(points) > cap else "")
+
+
 def _fmt(n: float) -> str:
     return f"{n / 1e6:.2f}M" if n >= 1e6 else f"{n / 1e3:.0f}K" if n >= 1e3 else f"{n:.0f}"
 
@@ -136,9 +141,10 @@ def markdown(store: Store, d: ModuleType) -> str:
         mark = f" ✗ {h.get('refuted_by')}" if h["status"] == "refuted" else ""
         tag = " (post-hoc)" if h["post_hoc"] else ""
         out.append(f"- `{h['id']}` {_bar(b)} {b:.2f} {h['claim']}{tag}{mark}")
-    out += ["", "## Fan-outs"]
+    hidden = set(getattr(d, "hidden_parts", ()))
+    out += ["", "## Runs"]
     for r in runs:
-        lanes = " · ".join(f"{l['name']} {''.join(d.glyph(p) for p in store.raw(l['file'])['points'])}" for l in r["lanes"] if l["name"] != "compaction")
+        lanes = " · ".join(f"{l['name']} {_glyphs(d, store.raw(l['file'])['points'])}" for l in r["lanes"] if l["name"] not in hidden)
         out.append(f"- `{r['id']}` {r['test']} → {r['outcome']} ({'✓' if r['pass'] else '✗'}{r['review']}) ← {r['why']}")
         out.append(f"  - {lanes}")
     out += ["", "## Steps (newest first)"]
@@ -175,6 +181,8 @@ def html(store: Store, d: ModuleType) -> str:
         "token_legend": getattr(d, "token_legend", {}),
         "rounds": narrate.rounds(store, d), "belief_table": narrate.beliefs_table(store),
         "arm_labels": getattr(d, "arm_labels", {}), "point_labels": getattr(d, "point_labels", d.legend),
+        "point_colors": getattr(d, "point_colors", {}), "text": getattr(d, "board_text", {}), "hidden_parts": sorted(getattr(d, "hidden_parts", ())),
+        "actual_usd": d.spent_usd(store) if hasattr(d, "spent_usd") else None,
     }
     refresh = '<meta http-equiv="refresh" content="2">' if m.get("status") == "running" else ""
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
