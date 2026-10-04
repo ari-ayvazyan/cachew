@@ -115,7 +115,7 @@ async def run_arm(name: str, runner: Runner, build, task_map: dict[str, str], pa
     try:
         results = await asyncio.gather(*(runner.call(build(t)) for t in task_map.values()))
     finally:
-        prewarms = [json.loads(f.read_text()) for f in Path(state).glob("*.prewarm.json")]
+        prewarms = [u for f in Path(state).glob("*.prewarm.json") if "error" not in (u := json.loads(f.read_text()))]
         patch.uninstall()
         shutil.rmtree(state, ignore_errors=True)
     calls = [{"label": label, **r} for label, r in zip(task_map, results)]

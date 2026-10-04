@@ -50,10 +50,10 @@ uses the 1-hour cache for slow fan-outs.
    user turn (the end of the inherited or compacted context).
 2. **Single-flight pre-warm.** A cache entry is readable only once the request
    writing it starts responding, so N siblings fired together would each pay
-   the 1.25× write. The first request goes through; the first concurrent
-   sibling sends one `max_tokens: 0` pre-warm (prefill only, no output billed)
-   and the others wait for it, then read. Marker files coordinate this across
-   processes. Sequential sub-agents and single-agent loops never pre-warm.
+   the 1.25× write. The first request goes through and the others wait for it,
+   then read; once ≥2 wait on a non-streaming leader, one sends a `max_tokens: 0`
+   pre-warm, a 2nd write that still keeps the fan-out below uncached (marker
+   files coordinate across processes; sequential calls never pre-warm).
 3. **Usage pass-through** of the cache fields, plus OpenAI-style
    `prompt_tokens_details.cached_tokens`.
 

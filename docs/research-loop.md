@@ -135,3 +135,8 @@ selector pays it as if it were real.
   - R-001 surprised the leading hypothesis, so the proposer read the raw data, saw 2 writes per cached arm (leader + pre-warm), and proposed the formula with 2 writes (H-006).
   - H-006 was then confirmed on 5 tests it had not seen (belief 0.99).
   - Product finding: at N=2, caching costs more than not caching (R-006), because the leader and the pre-warm both write the cache.
+- **`studies/003-gated-prewarm`: stopped unresolved after 6 runs, new hypothesis leading at 0.90.**
+  - Fix for 002's product finding: siblings now wait for the leader, and a pre-warm is sent only when enough siblings wait for its 2nd write to stay below uncached (`min_prewarm_waiters` in `cachew/patch.py`: 2 waiters, 4 with the 1-hour TTL) and never against a streaming leader, whose entry is readable before a pre-warm could finish.
+  - H-005 (formula with 1 write for N=2, 2 writes for N≥3) leads at 0.90; the 2-writes formula was refuted by the same point that exposed the bug (R-006, haiku n2 h16k: now 1 write + 1 read, cache_only $0.0233 vs naive $0.0338).
+  - It stopped because no remaining test splits H-005 from the textbook 1-write formula: they pick the same winner across the rest of the grid.
+  - Live check (Haiku 4.5, 2 sub-agents, real API): cache_only 1 write + 1 read, $0.0272 vs naive $0.0388 (30% saved).

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from cachew.patch import min_prewarm_waiters
 from cachew.pricing import PRICES
 
 OUTCOMES = ["compact_cache", "cache_only", "other"]  # other = naive or compact_only
@@ -25,6 +26,7 @@ SOURCES = {
     "readme_crossover": ("README.md", 99, 101),
     "readme_live_row": ("README.md", 111, 116),
     "pricing_model": ("cachew/pricing.py", 47, 76),
+    "prewarm_gate": ("cachew/patch.py", 170, 184),
 }
 
 HYPOTHESES = [
@@ -36,6 +38,8 @@ HYPOTHESES = [
      "rule": {"type": "n_at_least", "n": 8}},
     {"key": "formula", "claim": "pricing formula picks winner (1 write)", "sources": ["pricing_model"],
      "rule": {"type": "formula", "writes": 1}},
+    {"key": "formula_sf", "claim": "pricing formula, pre-warm only when it pays (1 write if N<3)",
+     "sources": ["pricing_model", "prewarm_gate"], "rule": {"type": "formula", "writes": "single_flight"}},
     {"key": "none", "claim": "none of these is right", "sources": [],
      "rule": {"type": "uniform"}},
 ]
@@ -52,12 +56,22 @@ def _claim(outcome: str) -> dict[str, float]:
     return {o: CONF if o == outcome else rest for o in OUTCOMES}
 
 
-def arm_costs(params: dict[str, Any], writes: float) -> dict[str, float]:
+def writes_per_arm(params: dict[str, Any], writes: float | str) -> float:
+    """``"single_flight"``: the leader's write, plus a pre-warm only once
+    enough siblings wait on it (cachew.patch.min_prewarm_waiters)."""
+    if writes == "single_flight":
+        return 2 if params["n"] - 1 >= min_prewarm_waiters(params["model"]) else 1
+    return float(writes)
+
+
+def arm_costs(params: dict[str, Any], writes: float | str) -> dict[str, float]:
     """Input-side USD per arm; outputs and tasks are identical across arms and cancel.
 
-    ``writes``: cache writes per cached arm (1 in the textbook formula; the
-    single-flight pre-warm makes it 2 for concurrent fan-outs).
+    ``writes``: cache writes per cached arm (1 in the textbook formula; an
+    unconditional single-flight pre-warm makes it 2 for concurrent fan-outs;
+    ``"single_flight"`` is the gated pre-warm).
     """
+    writes = writes_per_arm(params, writes)
     p = PRICES[params["model"]]
     n, h, b = params["n"], params["history_tokens"], BRIEF_TOKENS
     cw, m = p.cache_write(), 1_000_000
@@ -91,7 +105,7 @@ def predict(rule: dict[str, Any], params: dict[str, Any]) -> dict[str, float]:
 def estimate_live_usd(params: dict[str, Any]) -> float:
     """What this test would cost on the real API (all four arms + compaction + outputs)."""
     p = PRICES[params["model"]]
-    inputs = sum(arm_costs(params, 2).values()) + params["history_tokens"] * p.input / 1e6
+    inputs = sum(arm_costs(params, "single_flight").values()) + params["history_tokens"] * p.input / 1e6
     outputs = 4 * params["n"] * OUT_TOKENS * p.output / 1e6
     return round(inputs + outputs, 4)
 
