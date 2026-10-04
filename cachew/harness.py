@@ -116,8 +116,37 @@ def system_sha(text: str) -> str:
 # -- credentials ---------------------------------------------------------------
 
 
-def api_key() -> str:
-    """Key for Omnigent's adapter: harness env, then the process env, then the repo's git-ignored .env."""
+KEY_FILE = ".cachew-key"
+
+
+def store_key(study: Path, key: str) -> None:
+    """Hand a run's own API key to its harnesses: owner-only file in the study, removed by ``forget_key``.
+
+    Omnigent only resolves ``${VAR}`` in the top agent's spec, and its local server may
+    outlive the process that started the run, so the environment cannot carry the key
+    to every sub-agent. The file never leaves the study folder (git-ignored).
+    """
+    path = Path(study) / KEY_FILE
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(key)
+
+
+def forget_key(study: Path) -> None:
+    (Path(study) / KEY_FILE).unlink(missing_ok=True)
+
+
+def api_key(study: Path | None = None) -> str:
+    """Key for Omnigent's adapter: the run's own key, harness env, the process env, then the repo's .env.
+
+    A run started with the scientist's own key never falls back to the shared key: it
+    fails instead, so its calls are never billed to someone else.
+    """
+    if study and (read_json(Path(study) / "run.json", {}) or {}).get("key") == "own":
+        try:
+            return (Path(study) / KEY_FILE).read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            raise RuntimeError("this run uses its own API key, which was removed when the run ended") from None
     for name in (_ENV + "API_KEY", "ANTHROPIC_API_KEY"):
         if os.environ.get(name):
             return os.environ[name]
@@ -229,7 +258,7 @@ class CachewExecutor(_executor_base()):  # type: ignore[misc]
         if program:
             mod, _, fn = program.partition(":")
             self.program = getattr(importlib.import_module(mod), fn)
-        self.key = api_key()
+        self.key = api_key(self.study)
         self._tool_executor: Any = None  # installed by Omnigent's ExecutorAdapter
         self._history: dict[str, tuple[int, list[dict[str, Any]]]] = {}
         patch.install()

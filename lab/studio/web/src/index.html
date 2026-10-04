@@ -3,112 +3,85 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b0f16">
   <title>Cachew Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5bea'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h5' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='22' cy='21' r='3' fill='%2386efac'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="18" cy="16" r="3" fill="var(--accent)"/></svg>
-      <span>Cachew Studio</span>
-      <small>research teams on Omnigent · fan-outs on one shared cache</small>
-    </div>
-    <div class="top-right">
-      <span id="omnigent-link"></span>
-      <button id="toggle-theme" class="ghost" title="Toggle light/dark">◐</button>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#/" aria-label="Cachew Studio home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M9 11h14M9 16h9M9 21h5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="21" r="3" fill="#86efac"/></svg>
+        </span>
+        <span class="brand-text"><b>Cachew Studio</b><small>AI research lab on Omnigent</small></span>
+      </a>
+      <nav class="topbar-actions" aria-label="Main">
+        <a href="#/" class="btn ghost sm hide-sm" id="nav-runs">Runs</a>
+        <a id="omnigent-link" class="btn ghost sm hide-sm" target="_blank" rel="noopener">Omnigent <span aria-hidden="true">↗</span></a>
+        <a href="#/new" class="btn primary sm" id="nav-new">New research</a>
+      </nav>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="side">
-      <form id="new-run" class="card">
-        <h2>New research</h2>
-        <label>Research question
-          <textarea name="question" rows="4" required minlength="10" placeholder="What do you want the team to find out? State the question and what a good answer would look like."></textarea>
-        </label>
-        <label>Context <span class="muted">(optional: notes, data, papers; shared by every agent)</span>
-          <textarea name="context" rows="4" placeholder="Paste background material, or attach text files below."></textarea>
-        </label>
-        <div class="attach">
-          <input type="file" id="files" multiple accept=".txt,.md,.csv,.json,.tsv,.py,.tex">
-          <span id="files-note" class="muted"></span>
-        </div>
-        <div class="row">
-          <label>Model <select name="model" id="model"></select></label>
-          <label>Effort <select name="effort" id="effort"></select></label>
-        </div>
-        <div class="row">
-          <label>Agents per fan-out <output id="width-out">3</output>
-            <input type="range" name="width" id="width" min="1" max="6" value="3">
-          </label>
-          <label>Budget cap ($) <input type="number" name="budget_usd" value="3" min="0.1" max="50" step="0.1"></label>
-        </div>
-        <p id="estimate" class="muted small"></p>
-        <button type="submit" class="primary" id="start">Start research</button>
-        <p id="form-error" class="error" hidden></p>
-      </form>
-
-      <section class="card runs">
-        <h2>Runs</h2>
-        <ul id="runs"><li class="muted">No runs yet.</li></ul>
-      </section>
-    </aside>
-
-    <section class="content">
-      <div id="empty" class="empty">
-        <h1>Ask a research question</h1>
-        <p>A PI agent plans the work and fans it out to scouts, theorists, an experimenter, skeptics and a judge. Every one of them is an Omnigent agent.</p>
-        <p>Before each fan-out, the PI writes everything the team knows into one brief and pre-warms it in the prompt cache. The sub-agents then read the brief from cache instead of paying full input price for it.</p>
-      </div>
-
-      <div id="run" hidden>
-        <div class="run-head">
-          <div>
-            <h1 id="question"></h1>
-            <p id="phase" class="phase"></p>
-          </div>
-          <div class="run-actions">
-            <span id="status" class="pill"></span>
-            <button id="stop" class="ghost" hidden>Stop</button>
-          </div>
-        </div>
-
-        <section class="savings card" id="savings"></section>
-
-        <section class="graph-card card">
-          <div class="graph-head">
-            <h2>Team</h2>
-            <div class="legend">
-              <span><i class="dot idle"></i>idle</span>
-              <span><i class="dot thinking"></i>thinking</span>
-              <span><i class="dot done"></i>done</span>
-              <span><i class="dot error"></i>error</span>
-              <span><i class="bar"></i>input read from cache</span>
-            </div>
-          </div>
-          <div class="canvas-wrap" id="canvas-wrap"><div id="canvas"></div></div>
-        </section>
-
-        <section class="card">
-          <h2>Fan-outs and the shared cache</h2>
-          <div id="stages"></div>
-        </section>
-
-        <section class="card" id="verdict-card" hidden>
-          <h2>Verdict</h2>
-          <div id="verdict" class="md"></div>
-        </section>
+  <main id="main" tabindex="-1">
+    <div id="boot" class="container page-pad"><div class="skeleton-block"></div></div>
+    <section id="page-home" class="page" hidden></section>
+    <section id="page-new" class="page" hidden></section>
+    <section id="page-run" class="page" hidden>
+      <div class="container page-pad">
+        <div id="run-head"></div>
+        <div id="run-alert"></div>
+        <div id="run-savings"></div>
+        <div id="run-loop" class="card loop-card"></div>
+        <nav class="tabs" id="run-tabs" role="tablist" aria-label="Run sections"></nav>
+        <div id="tab-overview" class="tab-panel" role="tabpanel"></div>
+        <div id="tab-team" class="tab-panel" role="tabpanel" hidden></div>
+        <div id="tab-hypotheses" class="tab-panel" role="tabpanel" hidden></div>
+        <div id="tab-experiment" class="tab-panel" role="tabpanel" hidden></div>
+        <div id="tab-review" class="tab-panel" role="tabpanel" hidden></div>
+        <div id="tab-acceleration" class="tab-panel" role="tabpanel" hidden></div>
+        <div id="tab-record" class="tab-panel" role="tabpanel" hidden></div>
       </div>
     </section>
-
-    <aside class="inspector" id="inspector" hidden>
-      <div class="insp-head">
-        <h2 id="insp-title"></h2>
-        <button class="ghost" id="insp-close" aria-label="Close">✕</button>
-      </div>
-      <div id="insp-body"></div>
-    </aside>
   </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>Cachew Studio · every agent is an Omnigent session · every artifact is kept in the run's research record</span>
+    </div>
+  </footer>
+
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-scrim" data-close></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <header class="drawer-head">
+        <div class="drawer-titles">
+          <p id="drawer-kicker" class="eyebrow"></p>
+          <h2 id="drawer-title"></h2>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Close panel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div id="drawer-body" class="drawer-body"></div>
+    </aside>
+  </div>
+
+  <dialog id="confirm" class="confirm">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="confirm-actions">
+        <button value="cancel" class="btn ghost">Cancel</button>
+        <button value="ok" class="btn danger" id="confirm-ok">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/assets/main.js"></script>
 </body>
 </html>

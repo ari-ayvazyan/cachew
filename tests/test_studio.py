@@ -130,29 +130,153 @@ class Server(TmpDir):
         from fastapi.testclient import TestClient
 
         from lab.studio import server
-        self.patch = mock.patch.object(runs, "STUDIES", self.tmp)
-        self.patch.start()
+        self.patches = [mock.patch.object(runs, "STUDIES", self.tmp), mock.patch.object(server, "has_shared_key", return_value=True)]
+        for p in self.patches:
+            p.start()
         self.client = TestClient(server.app)
 
     def tearDown(self) -> None:
-        self.patch.stop()
+        for p in self.patches:
+            p.stop()
         super().tearDown()
 
     def test_config_lists_models(self) -> None:
         cfg = self.client.get("/api/config").json()
         self.assertIn(MODEL, [m["id"] for m in cfg["models"]])
 
+    def post(self, **body: object) -> object:
+        return self.client.post("/api/runs", json={"question": "A long enough question?", **body})
+
     def test_start_validates_and_launches(self) -> None:
         self.assertEqual(self.client.post("/api/runs", json={"question": "short"}).status_code, 422)
-        self.assertEqual(self.client.post("/api/runs", json={"question": "A long enough question?", "width": 9}).status_code, 422)
         with mock.patch.object(runs, "start", return_value=self.tmp / "001-x") as start:
-            r = self.client.post("/api/runs", json={"question": "A long enough question?", "model": MODEL, "width": 2})
+            r = self.post(model=MODEL, width=2)
         self.assertEqual(r.json(), {"id": "001-x"})
         self.assertEqual(start.call_args.args[:2], ("A long enough question?", ""))
+        self.assertEqual(start.call_args.kwargs["api_key"], "")
+
+    def test_shared_key_tier(self) -> None:
+        with mock.patch.object(runs, "start", return_value=self.tmp / "001-x") as start:
+            for body in ({"model": "claude-opus-5-5"}, {"model": "claude-fable-5-1"}, {"model": MODEL, "effort": "high"},
+                         {"model": MODEL, "width": 9}, {"model": MODEL, "budget_usd": 10}):
+                r = self.post(**body)
+                self.assertEqual(r.status_code, 422, body)
+                self.assertIn("own Anthropic API key", r.json()["detail"])
+            self.assertEqual(self.post(model="claude-haiku-4-5", effort="high").status_code, 200)
+            start.assert_called_once()
+
+    def test_own_key_unlocks_every_model_and_any_team_size(self) -> None:
+        with mock.patch.object(runs, "start", return_value=self.tmp / "001-x") as start, \
+                mock.patch.object(runs, "check_key") as check:
+            r = self.post(model="claude-fable-5-1", effort="high", width=40, budget_usd=50, api_key=" sk-ant-test ")
+        self.assertEqual(r.status_code, 200)
+        check.assert_called_once_with("sk-ant-test")
+        self.assertEqual(start.call_args.kwargs["api_key"], "sk-ant-test")
+        self.assertEqual(start.call_args.args[4], 40)
+
+    def test_rejected_key_starts_nothing(self) -> None:
+        with mock.patch.object(runs, "start") as start, \
+                mock.patch.object(runs, "check_key", side_effect=ValueError("Anthropic rejected this API key")):
+            r = self.post(model=MODEL, api_key="sk-ant-bad")
+        self.assertEqual((r.status_code, r.json()["detail"]), (422, "Anthropic rejected this API key"))
+        start.assert_not_called()
+
+    def test_no_shared_key_needs_own_key(self) -> None:
+        from lab.studio import server
+        with mock.patch.object(server, "has_shared_key", return_value=False):
+            self.assertFalse(self.client.get("/api/config").json()["shared_key"])
+            self.assertEqual(self.post(model=MODEL).status_code, 422)
+
+    def test_approval_only_while_waiting(self) -> None:
+        study = self.tmp / "001-x"
+        study.mkdir()
+        harness.write_json(study / "run.json", {"status": "running"})
+        self.assertEqual(self.client.post("/api/runs/001-x/approval", json={"decision": "approve"}).status_code, 409)
+        harness.write_json(study / "run.json", {"status": "awaiting_approval"})
+        harness.write_json(study / "selection.json", {"tests": ["A: one", "B: two"], "chosen": "A"})
+        r = self.client.post("/api/runs/001-x/approval", json={"decision": "approve", "test": "B: two", "note": "cheaper"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["changed"])
+        self.assertEqual(harness.read_json(study / "approval.json")["test"], "B: two")
+        self.assertEqual(self.client.post("/api/runs/001-x/approval", json={"decision": "maybe"}).status_code, 422)
 
     def test_unknown_run_is_404(self) -> None:
         self.assertEqual(self.client.get("/api/runs/999-nope").status_code, 404)
         self.assertEqual(self.client.get("/api/runs/..%2F..").status_code, 404)
+
+
+class OwnKey(TmpDir):
+    def run_with(self, key: str) -> Path:
+        harness.write_json(self.tmp / "run.json", {"key": key})
+        return self.tmp
+
+    def test_own_key_run_reads_its_key_and_never_falls_back(self) -> None:
+        study = self.run_with("own")
+        harness.store_key(study, "sk-ant-own")
+        self.assertEqual(harness.api_key(study), "sk-ant-own")
+        harness.forget_key(study)
+        with self.assertRaises(RuntimeError):
+            harness.api_key(study)
+
+    def test_key_file_is_never_served(self) -> None:
+        study = self.run_with("own")
+        harness.store_key(study, "sk-ant-own")
+        for rel in (harness.KEY_FILE, "./" + harness.KEY_FILE):
+            with self.assertRaises(FileNotFoundError):
+                runs.read_file(study, rel)
+
+    def test_stop_and_finished_runs_drop_the_key(self) -> None:
+        study = self.run_with("own")
+        harness.store_key(study, "sk-ant-own")
+        runs.stop(study)
+        self.assertFalse((study / harness.KEY_FILE).exists())
+
+
+class Approval(TmpDir):
+    def test_gate_waits_for_the_decision(self) -> None:
+        import asyncio
+        run = {"status": "running"}
+        harness.write_json(self.tmp / "approval.json", {"decision": "approve", "test": "B"})
+        self.assertEqual(asyncio.run(team.await_approval(self.tmp, run, poll_s=0))["decision"], "approve")
+        self.assertEqual(harness.read_json(self.tmp / "run.json")["status"], "awaiting_approval")
+
+    def test_stop_ends_the_wait(self) -> None:
+        import asyncio
+        (self.tmp / "STOP").write_text("now")
+        self.assertEqual(asyncio.run(team.await_approval(self.tmp, {}, poll_s=0))["decision"], "stop")
+
+    def test_brief_c_carries_the_scientists_decision(self) -> None:
+        harness.write_json(self.tmp / "approval.json", {"decision": "approve", "test": "B: two", "changed": True, "note": "cheaper"})
+        note = team.approval_note(self.tmp)
+        self.assertIn("B: two", note)
+        self.assertIn("cheaper", note)
+        harness.write_json(self.tmp / "approval.json", {"decision": "reject"})
+        self.assertEqual(team.approval_note(self.tmp), "")
+
+
+class Science(TmpDir):
+    def test_decision_falls_back_to_the_verdict_table(self) -> None:
+        md = ("Verdict: Unresolved, more data needed.\n\n## 2. Probabilities\n\n| Hypothesis | Prior | Posterior |\n"
+              "|---|---|---|\n| H1 direct | 0.22 | 0.30 |\n| H2 other | 20% | 15% |\n\n## 4. Single next experiment\n\nRun the crossover.\n")
+        d = runs._decision_from_verdict(md)
+        self.assertEqual(d["posterior"], [{"id": "H1", "p": 0.30}, {"id": "H2", "p": 0.15}])
+        self.assertEqual(d["status"], "unresolved")
+        self.assertEqual(d["next_experiment"], "Run the crossover.")
+
+    def test_selection_matches_the_chosen_test(self) -> None:
+        s = runs._selection({"tests": ["A: crossover", "B: meta-regression"], "chosen": "B (meta-regression)", "why": "cheap"})
+        self.assertEqual(s["chosen_index"], 1)
+        self.assertEqual(runs._selection({"tests": [{"name": "x"}], "chosen": "x"})["chosen_index"], 0)
+        self.assertIsNone(runs._selection(["not", "a", "dict"]))
+
+    def test_parallel_speedup(self) -> None:
+        run = {"steps": [{"id": "scouts", "fan": True, "started": 0}], "status": "done", "finished": 20,
+               "agents": {"scout-1": {"step": "scouts"}, "scout-2": {"step": "scouts"}}}
+        recs = {"scout-1": {"started": 0, "finished": 10}, "scout-2": {"started": 1, "finished": 11}}
+        acc = runs.acceleration(run, recs, {"usd": 1.0, "usd_uncached": 2.5}, now=30)
+        self.assertEqual(acc["fanouts"][0]["speedup"], round(20 / 11, 2))
+        self.assertEqual(acc["cost_ratio"], 2.5)
+        self.assertEqual(acc["run_s"], 20)
 
 
 if __name__ == "__main__":

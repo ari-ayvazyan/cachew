@@ -6,6 +6,7 @@ The PI is an Omnigent agent on the ``cachew`` harness whose turns run
 
     PI plans ─▶ brief A ─▶ scouts ×N
              ─▶ brief B ─▶ theorists ×N ─▶ lead theorist ─▶ experimenter
+             ─▶ scientist approves the experiment (optional gate)
              ─▶ brief C ─▶ skeptics ×N  ─▶ judge ─▶ verdict
 
 Each brief is everything the team knows so far. Before a stage's first
@@ -20,16 +21,19 @@ Omnigent bundle (``agent/``); ``pi`` advances the run one step per turn.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
 from pathlib import Path
 from typing import Any
 
-from cachew.harness import Turn, dispatch_tag, load_brief, publish_brief, read_json, record_call, system_sha, write_json
+from cachew.harness import (Turn, dispatch_tag, forget_key, load_brief, publish_brief, read_json, record_call,
+                            system_sha, write_json)
 from cachew.pricing import MIN_CACHE_TOKENS
 
 PROGRAM = "lab.studio.team:pi"
+APPROVAL_TIMEOUT_S = 45 * 60  # below Omnigent's one-hour idle watchdog for a harness turn
 
 ROLES: dict[str, dict[str, Any]] = {
     "scout": {"name": "Scout", "angles": ["prior results", "methods", "counter-evidence", "data sources",
@@ -43,6 +47,32 @@ ROLES: dict[str, dict[str, Any]] = {
     "judge": {"name": "Judge", "angles": ["verdict"]},
 }
 
+# What each role decides, reads and writes, and what it may use: the team's agent specification.
+NO_TOOLS = "none: no web, no code execution, no file access (Omnigent tools disabled)"
+ROLE_SPECS: dict[str, dict[str, str]] = {
+    "pi": {"name": "PI", "decision": "What the question means, what counts as an answer, and when each stage starts",
+           "inputs": "Research question and context from the scientist", "output": "plan.md, briefs A-C",
+           "tools": "Omnigent sys_session_send to dispatch members; no web, no code execution"},
+    "scout": {"name": "Scout", "decision": "Which known evidence bears on the question, and how reliable it is",
+              "inputs": "Brief A: question, context, plan", "output": "literature/scout-N.md", "tools": NO_TOOLS},
+    "theorist": {"name": "Theorist", "decision": "Which competing hypotheses explain the evidence, and how to refute each",
+                 "inputs": "Brief B: plan and scout reports", "output": "proposals/theorist-N.md", "tools": NO_TOOLS},
+    "lead": {"name": "Lead theorist", "decision": "The candidate hypotheses, their priors and their predictions",
+             "inputs": "Brief B and all theorist proposals", "output": "candidates.md, candidates.json, predictions.json",
+             "tools": NO_TOOLS},
+    "experimenter": {"name": "Experimenter", "decision": "Which of 2-3 tests to run, by information per unit of effort",
+                     "inputs": "Brief B and the candidates", "output": "experiment/design.md, analysis.py, selection.json",
+                     "tools": NO_TOOLS},
+    "human": {"name": "Scientist", "decision": "Approve, change or reject the experiment before it is reviewed",
+              "inputs": "The tests, the chosen test and the reason", "output": "approval.json",
+              "tools": "Cachew Studio"},
+    "skeptic": {"name": "Skeptic", "decision": "Whether the design, code and claims survive one line of attack",
+                "inputs": "Brief C: everything so far, plus the scientist's decision", "output": "reviews/skeptic-N.md",
+                "tools": NO_TOOLS},
+    "judge": {"name": "Judge", "decision": "The answer, the probability of each hypothesis, and the next experiment",
+              "inputs": "Brief C and all reviews", "output": "verdict.md, decision.json", "tools": NO_TOOLS},
+}
+
 # step id, stage (brief), role, fan-out?
 STEPS: list[tuple[str, str, str, bool]] = [
     ("plan", "", "pi", False),
@@ -50,6 +80,7 @@ STEPS: list[tuple[str, str, str, bool]] = [
     ("theorists", "B", "theorist", True),
     ("lead", "B", "lead", False),
     ("experimenter", "B", "experimenter", False),
+    ("approve", "", "human", False),
     ("skeptics", "C", "skeptic", True),
     ("judge", "C", "judge", False),
     ("verdict", "", "pi", False),
@@ -66,11 +97,38 @@ confident you are, and never invent citations, numbers or sources. Say
 plainly when something is unknown. Do only your own task, in clean Markdown,
 as concisely as the task allows."""
 
+WRITING_RULES = """\
+How to write. A scientist skims your output, so say more with fewer words:
+- Lead with the finding or answer, then the support. No preamble, no closing summary.
+- Prefer a table or short bullets to paragraphs. One idea per bullet, one
+  line where possible. Keep any paragraph to three sentences or fewer.
+- Use numbers with units instead of adjectives ("lowers the error by 12%", not
+  "a substantial improvement"). Don't repeat what the brief already says.
+- Word limits are ceilings, not targets. Stop once the point is made.
+- Write plainly: use "is" and "has", not "serves as" or "boasts". Avoid filler
+  ("it is important to note", "in order to") and stacked hedges; state
+  uncertainty once, as a number or a plain "unknown".
+- Avoid inflated or promotional words: crucial, pivotal, key (as an
+  adjective), delve, underscore, highlight (as a verb), showcase, landscape,
+  tapestry, testament, robust, groundbreaking, comprehensive, seamless.
+- Don't announce what you are about to do ("let's explore", "here is").
+  Don't use "not only ... but", "it's not X, it's Y", or lists forced into
+  threes.
+- Never write em dashes or en dashes; use a period, comma, colon or
+  parentheses. Use straight quotes, sentence-case headings, no emojis, and
+  bold only where a reader truly must not miss something.
+- Never attribute claims to vague authorities ("experts say"); name the
+  source or the team artifact, or say it is your own background knowledge."""
+
+TEAM_PROMPT += "\n\n" + WRITING_RULES
+
 PI_PROMPT = """\
 You are the PI of a research team. You turn a research question into a
 plan that the team can act on, and you coordinate the team. Your turns are
 driven by the cachew orchestration program; write plans that are concrete,
-testable and honest about what can and cannot be known."""
+testable and honest about what can and cannot be known.
+
+""" + WRITING_RULES
 
 TASKS = {
     "plan": """Research question:
@@ -126,8 +184,11 @@ Weigh the hypotheses, the experiment and the reviews. Write the verdict:
 2. A probability for each candidate hypothesis after the evidence.
 3. What the skeptics changed, and which objections stand.
 4. The single next experiment that would settle what remains.
+5. The validation still needed before anyone relies on this in the real world.
 Cite the team's artifacts (plan, scouts, theorists, candidates, experiment,
-reviews) by name. Start with one line: "Verdict: <one sentence>".""",
+reviews) by name. Start with one line: "Verdict: <one sentence>". End with one
+JSON code block: {{"decision": {{"answer": "<one sentence>", "status": "supported" | "refuted" | "unresolved",
+"posterior": [{{"id", "p"}}], "next_experiment": "...", "validation_needed": "..."}}}}.""",
 }
 
 OUT = {"scout": "literature/scout-{i}.md", "theorist": "proposals/theorist-{i}.md", "lead": "candidates.md",
@@ -141,7 +202,7 @@ def team_layout(width: int) -> dict[str, dict[str, Any]]:
     """Every agent the run will use, so a UI can draw the team before anything starts."""
     agents: dict[str, dict[str, Any]] = {"pi": {"role": "pi", "name": "PI", "focus": "plans + coordinates", "step": "plan"}}
     for step, stage, role, fan in STEPS:
-        if role == "pi":
+        if role in ("pi", "human"):
             continue
         n = width if fan else 1
         for i in range(1, n + 1):
@@ -186,13 +247,15 @@ def write_bundle(study: Path, model: str, effort: str) -> Path:
     return root
 
 
-def make_study(study: Path, question: str, context: str, model: str, effort: str, width: int, budget_usd: float) -> dict[str, Any]:
+def make_study(study: Path, question: str, context: str, model: str, effort: str, width: int, budget_usd: float,
+               approval: bool = False, own_key: bool = False) -> dict[str, Any]:
     study.mkdir(parents=True, exist_ok=True)
     write_bundle(study, model, effort)
     run = {"question": question, "context": context, "model": model, "effort": effort, "width": width,
            "budget_usd": budget_usd, "status": "starting", "phase": "starting Omnigent", "created": time.time(),
            "step": 0, "steps": [{"id": s, "stage": st, "role": r, "fan": f, "status": "pending"} for s, st, r, f in STEPS],
-           "agents": team_layout(width), "briefs": {}, "min_cache_tokens": MIN_CACHE_TOKENS.get(model)}
+           "agents": team_layout(width), "briefs": {}, "min_cache_tokens": MIN_CACHE_TOKENS.get(model),
+           "approval": approval, "key": "own" if own_key else "shared"}
     write_json(study / "run.json", run)
     return run
 
@@ -237,7 +300,22 @@ def brief_text(study: Path, run: dict[str, Any], stage: str) -> str:
                   for k in _labels(run, "theorists")]
         parts.append(_section("Candidate hypotheses and predictions (lead theorist)", _read(study, "candidates.md")))
         parts.append(_section("Experiment: selection, design and code (experimenter)", _read(study, "experiment/design.md")))
+        if note := approval_note(study):
+            parts.append(_section("Scientist's decision on the experiment", note))
     return "\n".join(parts)
+
+
+def approval_note(study: Path) -> str:
+    """The scientist's approval as the team reads it in brief C ('' when the run has no gate)."""
+    a = read_json(study / "approval.json")
+    if not a or a.get("decision") != "approve":
+        return ""
+    lines = [f"Approved test: {a['test']}" if a.get("test") else "Approved the experimenter's chosen test."]
+    if a.get("changed"):
+        lines.append("The scientist chose this test instead of the experimenter's pick; review the design against it.")
+    if a.get("note"):
+        lines.append(f"Scientist's note: {a['note']}")
+    return "\n".join(lines)
 
 
 def _task(study: Path, run: dict[str, Any], label: str) -> str:
@@ -275,6 +353,8 @@ def _extract(study: Path, role: str) -> None:
             write_json(study / "selection.json", j.get("selection", j))
         if code := re.findall(r"```python\s*(.*?)```", design, re.S):
             (study / "experiment" / "analysis.py").write_text(code[0], encoding="utf-8")
+    if role == "judge" and (j := _json_block(_read(study, "verdict.md"))):
+        write_json(study / "decision.json", j.get("decision", j))
 
 
 def spent(study: Path) -> float:
@@ -329,6 +409,9 @@ def _done(study: Path, label: str) -> bool:
     return (read_json(study / "calls" / f"{label}.json", {}) or {}).get("status") in ("done", "error")
 
 
+TERMINAL = ("done", "failed", "stopped", "budget")
+
+
 async def pi(turn: Turn, messages: list[dict[str, Any]]) -> str:
     """One PI turn: collect finished members, then start the next step(s) until something is in flight."""
     try:
@@ -338,15 +421,32 @@ async def pi(turn: Turn, messages: list[dict[str, Any]]) -> str:
         run.update(status="failed", phase=f"PI failed: {type(e).__name__}: {e}"[:500])
         write_json(turn.study / "run.json", run)
         raise
+    finally:
+        if (read_json(turn.study / "run.json", {}) or {}).get("status") in TERMINAL:
+            forget_key(turn.study)
+
+
+async def await_approval(study: Path, run: dict[str, Any], poll_s: float = 1.0) -> dict[str, Any]:
+    """Hold the PI's turn until the scientist decides in the Studio (``approval.json``), stops, or times out."""
+    run.update(status="awaiting_approval", phase="waiting for the scientist to approve the experiment")
+    write_json(study / "run.json", run)
+    deadline = time.time() + APPROVAL_TIMEOUT_S
+    while time.time() < deadline:
+        if (study / "STOP").exists():
+            return {"decision": "stop"}
+        if decision := read_json(study / "approval.json"):
+            return decision
+        await asyncio.sleep(poll_s)
+    return {"decision": "timeout"}
 
 
 async def _advance(turn: Turn) -> str:
     study = turn.study
     run = read_json(study / "run.json")
-    if run["status"] in ("done", "failed", "stopped", "budget"):
+    if run["status"] in TERMINAL:
         return f"Research is {run['status']}."
     run["status"], run["pi_session"] = "running", turn.session
-    if any(s["status"] == "running" for s in run["steps"]):
+    if any(s["status"] == "running" and s["role"] != "human" for s in run["steps"]):
         try:  # Omnigent's own completion channel; the outputs themselves are on disk
             await turn.tool("sys_read_inbox", {})
         except Exception:
@@ -356,6 +456,23 @@ async def _advance(turn: Turn) -> str:
         if (study / "STOP").exists():
             run.update(status="stopped", phase="stopped by user")
             break
+        if step["id"] == "approve":
+            if not run.get("approval"):
+                step.update(status="skipped", finished=time.time())
+                run["step"] += 1
+                continue
+            step.update(status="running", started=step.get("started") or time.time())
+            decision = (await await_approval(study, run)).get("decision")
+            step.update(status="done" if decision == "approve" else "rejected", finished=time.time())
+            if decision != "approve":
+                run.update(status="stopped", phase={
+                    "reject": "stopped: the scientist rejected the experiment",
+                    "timeout": f"stopped: no approval within {APPROVAL_TIMEOUT_S // 60} minutes",
+                }.get(decision or "", "stopped by user"))
+                break
+            run["status"] = "running"
+            run["step"] += 1
+            continue
         if step["status"] == "running":
             waiting = [k for k in _labels(run, step["id"]) if not _done(study, k)]
             if waiting:
