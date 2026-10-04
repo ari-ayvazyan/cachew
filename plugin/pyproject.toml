@@ -1,0 +1,18 @@
+[project]
+name = "omnigent-cachew"
+version = "0.1.0"
+description = "Omnigent harness that runs agent turns on Omnigent's own Anthropic adapter, patched by cachew for cached fan-outs"
+requires-python = ">=3.12"
+
+[project.entry-points."omnigent.community.harness"]
+cachew = "omnigent.community.harness.cachew.plugin:contribution"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omnigent"]
+
+[tool.hatch.build]
+dev-mode-dirs = ["src"]

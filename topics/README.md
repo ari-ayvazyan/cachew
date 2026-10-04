@@ -1,5 +1,7 @@
 # Topics
 
+Project rule (see [CLAUDE.md](../CLAUDE.md)): all research programs and results stay out of git.
+
 One folder per research topic. Everything in here except this file is
 git-ignored: a topic's code, sources, cached data and findings stay local, and
 the repo only holds the generic loop (`lab/`) and the caching core (`cachew/`).

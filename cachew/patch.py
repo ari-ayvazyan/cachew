@@ -20,7 +20,13 @@ are modified) to:
    ``max_tokens: 0`` pre-warm (prefill only, no output billed) that every
    other concurrent sibling waits on, then they all read from cache.
    Coordination is via marker files so it also works across runner processes.
-3. Pass the cache usage fields through to the Chat Completions response.
+   An orchestrator that knows the shared prefix up front calls ``prewarm()``
+   before dispatching its sub-agents, so every sibling reads.
+3. Pass the cache usage fields through to the Chat Completions response, and
+   to any ``capture_usage()`` sink (Omnigent's ``Response.usage`` drops them).
+
+Every request, pre-warms included, is sent by the adapter's own
+``_send_request``; the patch never opens its own connection.
 
 Disable with ``CACHEW=0``. ``CACHEW_TTL=1h`` selects the
 1-hour TTL for fan-outs whose siblings start more than 5 minutes apart.
@@ -35,13 +41,17 @@ import logging
 import os
 import tempfile
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 _logger = logging.getLogger(__name__)
+# Raw Anthropic ``usage`` of every response in the current context (see capture_usage).
+_usage_sink: ContextVar[list[dict[str, Any]] | None] = ContextVar("cachew_usage_sink", default=None)
 
 # Below this prefix size no model caches (the smallest minimum is 512 tokens,
 # ~4 chars/token), so a pre-warm would be wasted. Keep it at that floor: any
@@ -154,11 +164,17 @@ def _prewarm_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return warm
 
 
+def _adapter_send() -> Any:
+    """The adapter's unpatched ``_send_request`` (no single-flight around a pre-warm)."""
+    from omnigent.llms.adapters import anthropic as mod
+
+    return _originals.get("_send_request") or mod._send_request
+
+
 async def _send_prewarm(headers: dict[str, str], payload: dict[str, Any], base_url: str) -> dict[str, Any]:
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(f"{base_url}/messages", headers=headers, json=_prewarm_payload(payload))
-        resp.raise_for_status()
-        return resp.json().get("usage", {})
+    with capture_usage() as sink:
+        await _adapter_send()(headers, _prewarm_payload(payload), base_url, 120)
+    return sink[-1] if sink else {}
 
 
 async def ensure_warm(headers: dict[str, str], payload: dict[str, Any], base_url: str) -> str | None:
@@ -201,6 +217,55 @@ async def ensure_warm(headers: dict[str, str], payload: dict[str, Any], base_url
 def mark_warm(key: str | None) -> None:
     if key:
         _touch(_state_dir() / f"{key}.warm")
+
+
+async def prewarm(
+    messages: list[dict[str, Any]],
+    model: str,
+    *,
+    api_key: str,
+    reasoning_effort: str | None = None,
+    base_url: str | None = None,
+) -> dict[str, Any]:
+    """Write the cache entry for a fan-out's shared prefix before any sub-agent starts.
+
+    ``messages`` are Chat Completions messages laid out exactly as each
+    sub-agent will send them (``compact.subagent_messages``); the final turn is
+    replaced by a placeholder, so only the prefix up to the last breakpoint
+    counts. Built by the adapter's own request builder (plus breakpoints) and
+    sent by its own ``_send_request`` with ``max_tokens: 0``: prefill only, no
+    output billed. Marks the prefix warm so siblings skip the single-flight
+    pre-warm. Returns the raw Anthropic usage (a cache write, or a read when
+    the entry already exists).
+    """
+    from omnigent.llms.adapters import anthropic as mod
+
+    install()
+    headers = mod._build_headers(api_key_override=api_key)
+    base = (base_url or mod._BASE_URL).rstrip("/")
+    extra: dict[str, Any] = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
+    metadata = await mod._get_anthropic_model_metadata(headers, base, model) if reasoning_effort else None
+    payload = apply_cache_breakpoints(_originals.get("_chat_to_anthropic", mod._chat_to_anthropic)(
+        list(messages), model, None, extra, model_metadata=metadata))
+    usage = await _send_prewarm(headers, payload, base)
+    mark_warm(prefix_key(payload))
+    return usage
+
+
+@contextmanager
+def capture_usage() -> Iterator[list[dict[str, Any]]]:
+    """Collect the raw Anthropic ``usage`` (cache fields included) of every response in this context."""
+    sink: list[dict[str, Any]] = []
+    token = _usage_sink.set(sink)
+    try:
+        yield sink
+    finally:
+        _usage_sink.reset(token)
+
+
+def _record_usage(usage: dict[str, Any]) -> None:
+    if (sink := _usage_sink.get()) is not None:
+        sink.append(dict(usage))
 
 
 # ── 3. Usage pass-through ─────────────────────────────────
@@ -250,6 +315,9 @@ def install() -> bool:
         from omnigent.llms.adapters import anthropic as mod
     except ImportError:
         return False
+    if _installed:
+        # Importing the adapter just now ran ``cachew.autoload``'s hook, which installed us.
+        return True
 
     install_workspace_header()
     orig_chat_to_anthropic = mod._chat_to_anthropic
@@ -264,6 +332,7 @@ def install() -> bool:
     def _anthropic_to_chat(resp: dict[str, Any]) -> dict[str, Any]:
         out = orig_anthropic_to_chat(resp)
         out["usage"].update(_cache_usage(resp.get("usage", {})))
+        _record_usage(resp.get("usage", {}))
         return out
 
     async def _stream_to_chat_chunks(lines: AsyncIterator[str]) -> AsyncIterator[dict[str, Any]]:
@@ -278,6 +347,7 @@ def install() -> bool:
         async for chunk in orig_stream_to_chat_chunks(tap()):
             if "usage" in chunk:
                 chunk["usage"].update(_cache_usage(start_usage))
+                _record_usage({**start_usage, "output_tokens": chunk["usage"].get("completion_tokens") or 0})
             yield chunk
 
     async def _send_request(headers: dict[str, str], payload: dict[str, Any], base_url: str, *a: Any, **kw: Any) -> dict[str, Any]:

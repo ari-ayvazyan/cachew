@@ -28,6 +28,21 @@ PRICES: dict[str, Price] = {
 }
 
 
+# Shortest prefix each model caches; a shorter one is silently not cached.
+MIN_CACHE_TOKENS: dict[str, int] = {
+    "claude-opus-5-5": 512,
+    "claude-sonnet-5-5": 512,
+    "claude-fable-5-1": 512,
+    "claude-haiku-4-5": 4096,
+}
+
+
+def uncached_usd(usage: dict, model: str) -> float:
+    """What the same request would cost if every input token were billed at full price."""
+    inp = sum((usage.get(k) or 0) for k in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+    return (inp * PRICES[model].input + (usage.get("output_tokens") or 0) * PRICES[model].output) / 1_000_000
+
+
 def cost_usd(usage: dict, model: str, ttl: str = "5m") -> float:
     """Cost of one request (or a summed usage dict) in USD."""
     p = PRICES[model]

@@ -39,14 +39,22 @@ def compaction_messages(history: list[dict[str, Any]], target_tokens: int | None
     return [{"role": "system", "content": instructions}, *body, {"role": "user", "content": _COMPACT_TRIGGER}]
 
 
-def subagent_messages(system: str, brief: str, task: str) -> list[dict[str, Any]]:
-    """Chat Completions messages for one sub-agent over the compacted brief."""
+def subagent_turns(brief: str, task: str) -> list[dict[str, Any]]:
+    """A sub-agent's turns after its system prompt: brief, acknowledgement, task.
+
+    These are also valid Responses API input items, which is how an Omnigent
+    harness sends them (the system prompt goes in ``instructions``).
+    """
     return [
-        {"role": "system", "content": system},
         {"role": "user", "content": f"<knowledge_brief>\n{brief}\n</knowledge_brief>"},
         {"role": "assistant", "content": _ACK},
         {"role": "user", "content": task},
     ]
+
+
+def subagent_messages(system: str, brief: str, task: str) -> list[dict[str, Any]]:
+    """Chat Completions messages for one sub-agent over the compacted brief."""
+    return [{"role": "system", "content": system}, *subagent_turns(brief, task)]
 
 
 def pass_history_messages(history: list[dict[str, Any]], task: str) -> list[dict[str, Any]]:
