@@ -54,6 +54,8 @@ def _round_index(store: Store) -> dict[str, int]:
 
 
 def _fanout(store: Store, d: ModuleType, r: dict[str, Any]) -> dict[str, Any]:
+    if hasattr(d, "arm_view"):
+        return d.arm_view(store, r)
     arms = []
     for name, rel in r["raw"].items():
         if name == "compaction":
@@ -143,7 +145,8 @@ def rounds(store: Store, d: ModuleType) -> list[dict[str, Any]]:
         n_agents = spec["params"].get("n")
         save = f" ({f['saving']:.0%} below no cache)" if f["saving"] else ""
         r["run"] = {"id": run["id"], "desc": _desc(d, spec["params"]), "agents": n_agents, "outcome": _lbl(d, "outcome_labels", run["outcome"]), **f}
-        r["steps"]["run"] = {"text": f"Sent the same {n_agents} tasks through {len(f['arms'])} strategies → cheapest: {f['winner']}{save}",
+        text = f.get("sentence") or f"Sent the same {n_agents} tasks through {len(f['arms'])} strategies → cheapest: {f['winner']}{save}"
+        r["steps"]["run"] = {"text": text,
                              "ids": [run["id"], run["spec"]]}
 
     for k in store.all("K"):

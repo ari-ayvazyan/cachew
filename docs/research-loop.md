@@ -111,7 +111,15 @@ studies/<NNN-name>/
 A domain is a module with `question, outcomes, sources, hypotheses, predict,
 feasible, estimate_usd, code_paths, propose_tests, refine, input_version, run,
 audit, short, point_kind, glyph, legend`, plus optional board labels
-(`describe`, `arm_labels`, `outcome_labels`, `check_labels`, `point_labels`). See
+(`describe`, `arm_labels`, `outcome_labels`, `check_labels`, `point_labels`,
+`point_colors`, `board_text`) and, for results that are not cost comparisons,
+`arm_view` (cards and sentences for the result panel) and `spent_usd`. See
+[lab/domains/dmg](../lab/domains/dmg/), which runs on real public data with
+Claude Haiku as the trial labeller and post-hoc proposer
+([findings](dmg-trial-gap.md)).
+
+The selector never re-runs a test on input data an earlier run already used
+(same `input_version`): one observation is not counted as two confirmations. See
 [lab/domains/fanout](../lab/domains/fanout/) and the coin-flip toy domain in
 [tests/test_lab.py](../tests/test_lab.py).
 

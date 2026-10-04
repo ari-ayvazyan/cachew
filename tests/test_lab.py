@@ -32,7 +32,7 @@ def coin_domain(true_p: float, rules: list[float]) -> SimpleNamespace:
     def run(store: Store, rid: str, spec: dict) -> dict:
         rng = random.Random(spec["seed"])
         outcome = "heads" if rng.random() < true_p else "tails"
-        return {"spec": spec["id"], "outcome": outcome, "data_version": "v", "raw": {"flip": store.put_raw(rid, "flip", {"points": [{"usage": {}, "o": outcome}]})}}
+        return {"spec": spec["id"], "outcome": outcome, "data_version": f"flip{spec['params']['flip']}", "raw": {"flip": store.put_raw(rid, "flip", {"points": [{"usage": {}, "o": outcome}]})}}
 
     return SimpleNamespace(
         name="coin", question="Coin bias?", outcomes=["heads", "tails"], sources={}, code_paths=["lab"],
@@ -41,7 +41,7 @@ def coin_domain(true_p: float, rules: list[float]) -> SimpleNamespace:
         predict=lambda rule, params: {"heads": rule["p"], "tails": 1 - rule["p"]},
         feasible=lambda params: (True, "ok"), estimate_usd=lambda params: 0.0,
         propose_tests=lambda tried, r: [{"params": {"flip": len(tried) + i}, "why": "next flip"} for i in range(2)],
-        refine=lambda store, runs: None, input_version=lambda params, seed: "v",
+        refine=lambda store, runs: None, input_version=lambda params, seed: f"flip{params['flip']}",
         run=run, audit=lambda store, spec, result: [{"check": "ok", "ok": True, "detail": ""}],
         short=lambda params: f"flip {params['flip']}", point_kind=lambda p: "full", glyph=lambda p: "●", legend={"full": "flip"},
     )
@@ -102,6 +102,15 @@ class TestLoop(TempDir):
     def test_stops_unresolved_when_budget_runs_out(self) -> None:
         last = Study(coin_domain(0.5, [0.6, 0.4]), self.dir / "s", max_rounds=2).go()
         self.assertEqual(last["stop"], "unresolved")
+
+    def test_same_data_is_not_counted_twice(self) -> None:
+        d = coin_domain(0.9, [0.9, 0.1])
+        d.input_version = lambda params, seed: "same"
+        d.run = (lambda run: lambda store, rid, spec: {**run(store, rid, spec), "data_version": "same"})(d.run)
+        last = Study(d, self.dir / "s", max_rounds=20).go()
+        self.assertEqual((last["kind"], last["stop"]), ("stop", "unresolved"))
+        self.assertEqual(len(Store(self.dir / "s").all("R")), 1)
+        self.assertIn("same data as R-001", last["table"][0]["note"])
 
     def test_stops_unresolved_when_no_test_discriminates(self) -> None:
         last = Study(coin_domain(0.5, [0.5]), self.dir / "s").go()  # 'p0.5' and 'none' predict the same
