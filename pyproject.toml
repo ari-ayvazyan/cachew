@@ -1,0 +1,22 @@
+[project]
+name = "cachew"
+version = "0.2.0"
+description = "Cachew (fan-out caching for Omnigent) and autolab (Omnigent research team)"
+requires-python = ">=3.12"
+dependencies = ["omnigent==0.16.0", "pyyaml", "mcp"]
+
+[project.optional-dependencies]
+experiments = ["torch", "torchvision", "numpy", "scipy", "scikit-learn", "pandas", "matplotlib"]
+
+[project.scripts]
+autolab = "autolab.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["autolab", "cachew", "lab", "lab.domains", "lab.domains.fanout"]
+
+[tool.setuptools.package-data]
+lab = ["board_template.html"]
