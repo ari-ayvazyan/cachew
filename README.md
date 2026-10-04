@@ -50,10 +50,10 @@ uses the 1-hour cache for slow fan-outs.
    user turn (the end of the inherited or compacted context).
 2. **Single-flight pre-warm.** A cache entry is readable only once the request
    writing it starts responding, so N siblings fired together would each pay
-   the 1.25× write. The first request goes through; the first concurrent
-   sibling sends one `max_tokens: 0` pre-warm (prefill only, no output billed)
-   and the others wait for it, then read. Marker files coordinate this across
-   processes. Sequential sub-agents and single-agent loops never pre-warm.
+   the 1.25× write. The first request goes through and the others wait for it,
+   then read; once ≥2 wait on a non-streaming leader, one sends a `max_tokens: 0`
+   pre-warm, a 2nd write that still keeps the fan-out below uncached (marker
+   files coordinate across processes; sequential calls never pre-warm).
 3. **Usage pass-through** of the cache fields, plus OpenAI-style
    `prompt_tokens_details.cached_tokens`.
 
@@ -150,10 +150,9 @@ A domain-agnostic research loop built on top of Cachew:
 - a judge, separate from the proposer, whose every decision cites run IDs;
 - an interactive progress board showing where time and tokens go.
 
-Research topics live outside git, in [topics/](topics/README.md) or any other
-folder. Fan-outs use `lab.fanout`: one cached prefix shared by all sub-agents,
-plus a spend cap. Design: [docs/research-loop.md](docs/research-loop.md).
+Design: [docs/research-loop.md](docs/research-loop.md). Studies:
+[studies/](studies/README.md).
 
 ```bash
-.venv/Scripts/python.exe -m lab --topic <name or folder> --study studies/001-my-question
+.venv/Scripts/python.exe -m lab --study studies/003-my-run
 ```

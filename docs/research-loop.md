@@ -53,21 +53,14 @@ When all hypotheses predict the same outcome, the test scores 0 however
 reassuring it would be. When no candidate reaches 0.01 bits, the selector stops
 the study as `unresolved`.
 
-## Skeptic checks
+## Skeptic checks (fan-out domain)
 
-Each topic writes its own audit, recomputed from `runs/R-xxx/raw/*.json` only.
-Every topic should cover these four checks:
+Every check is recomputed from `runs/R-xxx/raw/*.json`:
 
-- **intervention_ran:** the thing under test actually happened. For a cached
-  fan-out, include `lab.fanout.cache_check`: at least N−2 sub-agents read the
-  shared prefix, and at most the leader and the pre-warm wrote it.
-- **controls:** baselines are present, the comparisons are fair and the sample
-  is large enough.
-- **no_leakage:** the inputs hash to the spec's data version, and the
-  predictions were registered before the run. The cited source passages are
-  unchanged and the predictions have not drifted.
-- **claims_match_raw:** every number in the result, and the outcome, is
-  recomputed from the raw data.
+- **intervention_ran:** cached arms sent `cache_control` and at least N−2 sub-agents read; uncached arms never did.
+- **controls:** the naive arm is present, and every arm uses the same task set and the same N.
+- **no_leakage:** the per-agent task is never inside the cached prefix, and each arm starts cold. The inputs must hash to the spec's data version, and predictions must have been registered before the run. The cited source passages must be unchanged, and the predictions must not have drifted.
+- **claims_match_raw:** dollars per arm and the winner, recomputed from raw usage.
 
 A failed review means the run is discarded (`D:discard`) and never counted.
 
@@ -90,14 +83,14 @@ to bottom as overview → reasoning → detail:
 - **Steps:** one card per round, newest first. Each step is one plain sentence
   with a role icon (Propose, Choose, Run, Audit, Decide) and its artifact IDs.
   Only the selected round is expanded.
-- **Round N result:** one card per arm (raw-data part) with its value, tokens
-  and one square per request (uncached, cache write, cache read, pre-warm). The
-  best arm is tagged. Below are the audit checks in plain words and, collapsed,
-  the request timeline.
+- **Round N fan-out:** one card per strategy with $, tokens and one square per
+  request (uncached, cache write, cache read, pre-warm); the cheapest is
+  tagged. Below are the audit checks in plain words and, collapsed, the request
+  timeline.
 - **How confident are we in each hypothesis?:** a table of the probability of
   each hypothesis after every round. ✗ = ruled out, outlined = proposed then.
 - **Where time goes / where tokens go:** seconds per round by role, and a
-  run × arm matrix of tokens or $.
+  run × strategy matrix of tokens or $.
 
 Clicking a round anywhere selects it everywhere (kept in the URL hash). Every
 ID and every request square opens its raw data in an inspector. Run with
@@ -110,36 +103,40 @@ studies/<NNN-name>/
   study.json  ledger.jsonl  board.md  board.html
   sources/ hypotheses/ proposals/ specs/ decisions/ reviews/ handoffs/
   runs/R-001/result.json
-  runs/R-001/raw/<part>.json        one file per arm / raw-data part
+  runs/R-001/raw/{naive,cache_only,compact_only,compact_cache,compaction}.json
 ```
 
-## Adding a topic
+## Adding a domain
 
-A topic is a folder with `__init__.py`, kept outside git under `topics/` or
-anywhere else. Run it with `python -m lab --topic <name or path>`; see
-[topics/README.md](../topics/README.md).
+A domain is a module with `question, outcomes, sources, hypotheses, predict,
+feasible, estimate_usd, code_paths, propose_tests, refine, input_version, run,
+audit, short, point_kind, glyph, legend`, plus optional board labels
+(`describe`, `arm_labels`, `outcome_labels`, `check_labels`, `point_labels`). See
+[lab/domains/fanout](../lab/domains/fanout/) and the coin-flip toy domain in
+[tests/test_lab.py](../tests/test_lab.py).
 
-**Required:** the module defines:
+## Case study: when does compaction beat caching?
 
+```bash
+.venv/Scripts/python.exe -m lab --study studies/003-my-run
 ```
-question, outcomes, sources, hypotheses, predict, feasible, estimate_usd, code_paths,
-propose_tests, refine, input_version, run, audit, short, point_kind, glyph, legend
-```
 
-**Optional, for the board:**
+All runs use the real patched Omnigent adapter against
+[cachew/fake_api.py](../cachew/fake_api.py), so they are free but simulated.
+`estimate_usd` is what the same test would cost on the real API, and the
+selector pays it as if it were real.
 
-- `describe`, `arm_labels`, `arm_short`, `outcome_labels`, `check_labels`, `point_labels`, `point_colors`;
-- `board_text`, which overrides UI wording such as "best" or "Result:";
-- `baseline`, the arm that savings are measured against;
-- `hidden_parts`, the raw parts to leave off the board;
-- `arm_view`, which supplies cards and sentences for results that are not arm comparisons;
-- `spent_usd`, the real API spend.
-
-Runs that fan out to many model calls should use `lab.fanout`, a cached fan-out
-over one shared prefix with a spend ledger, and add `lab.fanout.cache_check` to
-their audit.
-
-The selector never re-runs a test on input data an earlier run already used
-(same `input_version`), so one observation is not counted as two
-confirmations. The coin-flip toy topic in
-[tests/test_lab.py](../tests/test_lab.py) is a complete minimal example.
+- **`studies/001-fanout-crossover`: stopped unresolved.**
+  - The skeptic failed R-003 and R-005 on `intervention_ran`: siblings wrote the cache instead of reading it.
+  - Root cause: the fake marked a pre-warm entry readable only after `start + prefill`, and `asyncio.sleep` can wake one clock tick early on Windows. The fake was fixed, with a regression test (`TestFakeClock`).
+  - Without the skeptic, those runs would have counted as evidence.
+- **`studies/002-fanout-crossover`: resolved in 6 rounds.**
+  - Refuted: "compaction always wins", "raw cache always wins", "compaction wins iff N ≥ 8", and the textbook formula in `pricing.py`, which assumes 1 cache write.
+  - R-001 surprised the leading hypothesis, so the proposer read the raw data, saw 2 writes per cached arm (leader + pre-warm), and proposed the formula with 2 writes (H-006).
+  - H-006 was then confirmed on 5 tests it had not seen (belief 0.99).
+  - Product finding: at N=2, caching costs more than not caching (R-006), because the leader and the pre-warm both write the cache.
+- **`studies/003-gated-prewarm`: stopped unresolved after 6 runs, new hypothesis leading at 0.90.**
+  - Fix for 002's product finding: siblings now wait for the leader, and a pre-warm is sent only when enough siblings wait for its 2nd write to stay below uncached (`min_prewarm_waiters` in `cachew/patch.py`: 2 waiters, 4 with the 1-hour TTL) and never against a streaming leader, whose entry is readable before a pre-warm could finish.
+  - H-005 (formula with 1 write for N=2, 2 writes for N≥3) leads at 0.90; the 2-writes formula was refuted by the same point that exposed the bug (R-006, haiku n2 h16k: now 1 write + 1 read, cache_only $0.0233 vs naive $0.0338).
+  - It stopped because no remaining test splits H-005 from the textbook 1-write formula: they pick the same winner across the rest of the grid.
+  - Live check (Haiku 4.5, 2 sub-agents, real API): cache_only 1 write + 1 read, $0.0272 vs naive $0.0388 (30% saved).
