@@ -10,6 +10,7 @@ from lab.provenance import passage_still_matches
 from lab.store import Store
 
 MIN_AGREEMENT = 0.8
+MIN_RECALL = 0.7
 
 
 def _check(name: str, ok: bool, detail: str) -> dict[str, Any]:
@@ -40,10 +41,26 @@ def audit(store: Store, spec: dict[str, Any], result: dict[str, Any]) -> list[di
     rate = agree / judged if judged else 0.0
     # labels the dictionary cannot back up: reported so a reader can check them by hand
     unverified = [t["nct"] for t in trials if t["axes"] and not (classify.dictionary_label(t) or set()) & set(t["axes"])]
-    out.append(_check("intervention_ran", not wrong and not unlabelled and rate >= MIN_AGREEMENT,
-                      f"{len(pts)} patients, {len(trials)} trials labelled; Haiku vs drug dictionary {agree}/{judged} ({rate:.0%})"
+    # recall on positives: of the targets the dictionary is sure about, how many did Haiku find?
+    pos = [(t, a) for t in trials for a in (classify.dictionary_label(t) or set())]
+    found = sum(1 for t, a in pos if a in t["axes"])
+    recall = found / len(pos) if pos else 1.0
+    unanswered = result["fanout"].get("unanswered", [])
+    out.append(_check("intervention_ran", not wrong and not unlabelled and not unanswered and rate >= MIN_AGREEMENT and recall >= MIN_RECALL,
+                      f"{len(pts)} patients, {len(trials)} trials labelled ({len(unanswered)} unanswered); Haiku vs drug dictionary "
+                      f"{agree}/{judged} ({rate:.0%}), recall on known targets {found}/{len(pos)} ({recall:.0%})"
                       + (f"; misses: {'; '.join(misses[:3])}" if misses else "")
                       + f"; {len(unverified)} label(s) not backed by the dictionary" + (f": {', '.join(unverified[:5])}" if unverified else "")))
+
+    # 1b. the fan-out actually used the cache: siblings read the shared prefix, at most leader + pre-warm wrote it
+    llm = store.raw(result["raw"]["llm"])["points"]
+    subs = [c for c in llm if c["label"].startswith("sub:")]
+    readers = sum(1 for c in subs if c["usage"]["cache_read_input_tokens"] > 0)
+    writes = sum(1 for c in llm if c["usage"]["cache_creation_input_tokens"] > 0)
+    parse = [c["label"] for c in subs if "parse_error" in c or c.get("answered", 0) < c.get("asked", 0)]
+    ok = readers >= len(subs) - 2 and writes <= 2 and not parse and len(subs) == result["fanout"]["subagents"]
+    out.append(_check("cache_used", ok, f"{readers}/{len(subs)} sub-agents read the shared prefix, {writes} write(s)"
+                      + (f"; unparsable: {parse}" if parse else "")))
 
     # 2. controls: enough patients, no patient counted twice, cohorts and trial filter as specified
     ids = [(x["cohort"], x["patient"]) for x in pts]

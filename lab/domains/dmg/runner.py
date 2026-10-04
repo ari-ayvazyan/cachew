@@ -48,7 +48,7 @@ def winner(g: dict[str, dict[str, Any]]) -> tuple[str, str]:
 
 def execute(store: Store, run_id: str, spec: dict[str, Any]) -> dict[str, Any]:
     data = inputs(spec["params"])
-    labels, calls = classify.classify(data["trials"])
+    labels, calls, fanout = classify.classify(data["trials"])
     g = gaps(data["patients"], labels)
     top, outcome = winner(g)
     files = {
@@ -56,16 +56,17 @@ def execute(store: Store, run_id: str, spec: dict[str, Any]) -> dict[str, Any]:
         **{f"trials_{i // PART + 1}": store.put_raw(run_id, f"trials_{i // PART + 1}", {"points": [
             {"label": t["nct"], **t, "eligibility_genes": t["eligibility_genes"][:100], "axes": labels[t["nct"]]}
             for t in data["trials"][i:i + PART]]}) for i in range(0, len(data["trials"]), PART)},
-        "llm": store.put_raw(run_id, "llm", {"model": "claude-haiku-4-5", "points": calls,
-                                             "usd": round(sum(c["usd"] for c in calls), 6)}),
+        "llm": store.put_raw(run_id, "llm", {"model": "claude-haiku-4-5", "points": calls, "usd": fanout["usd"],
+                                             "wall_s": fanout["wall_s"]}),
     }
     return {
         "spec": spec["id"],
-        "backend": "cBioPortal + ClinicalTrials.gov (cached), trial labels by claude-haiku-4-5",
+        "backend": "cBioPortal + ClinicalTrials.gov (cached data), trial labels by a cached claude-haiku-4-5 fan-out",
         "data_version": version(data),
         "arms": g,
         "winner": top,
         "outcome": outcome,
-        "llm_usd": round(sum(c["usd"] for c in calls), 6),
+        "llm_usd": fanout["usd"],
+        "fanout": fanout,
         "raw": files,
     }

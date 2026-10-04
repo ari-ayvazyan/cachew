@@ -316,7 +316,7 @@ function kpis() {
     <div class="card kpi"><div class="lbl">${esc(T.kpi_tokens)}</div>
       <div class="big num">${fmtT(sum(D.tokens))}</div>
       ${stackBar(D.tokens, (k) => css("t-" + k))}
-      <div class="keys">${TOK.slice(0, 2).map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
+      <div class="keys">${TOK.slice().sort((a, b) => (D.tokens[b] || 0) - (D.tokens[a] || 0)).slice(0, 2).map((k) => `<span><i class="sw" style="background:${css("t-" + k)}"></i>${esc(D.token_legend[k] || k)} <b>${fmtT(D.tokens[k] || 0)}</b></span>`).join("")}</div></div>
     <div class="card kpi"><div class="lbl">${esc(T.kpi_cost)}</div>
       <div class="big num">${fmtUsd(D.actual_usd ?? liveUsd)}</div>
       <div class="sub">${esc(T.kpi_cost_sub)}</div></div>`;

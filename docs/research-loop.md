@@ -114,8 +114,9 @@ audit, short, point_kind, glyph, legend`, plus optional board labels
 (`describe`, `arm_labels`, `outcome_labels`, `check_labels`, `point_labels`,
 `point_colors`, `board_text`) and, for results that are not cost comparisons,
 `arm_view` (cards and sentences for the result panel) and `spent_usd`. See
-[lab/domains/dmg](../lab/domains/dmg/), which runs on real public data with
-Claude Haiku as the trial labeller and post-hoc proposer
+[lab/domains/dmg](../lab/domains/dmg/), which runs on real public data: each run is
+a 12-sub-agent Claude Haiku fan-out over one cached prefix (the run's trial
+list) through `cachew`, and the skeptic checks that the cache was read
 ([findings](dmg-trial-gap.md)).
 
 The selector never re-runs a test on input data an earlier run already used

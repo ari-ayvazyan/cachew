@@ -86,5 +86,7 @@ def feasible(params: dict[str, Any]) -> tuple[bool, str]:
 
 
 def estimate_usd(params: dict[str, Any]) -> float:
-    """Haiku cost of labelling this test's trials (cached labels cost 0 but the estimate stays honest)."""
-    return round(len(trial_set(params)) * (350 * 1.0 + 25 * 5.0) / 1e6, 4)
+    """Haiku cost of this test's cached fan-out over its trials."""
+    from lab.domains.dmg.classify import estimate_usd as fanout_usd
+
+    return fanout_usd(trial_set(params))

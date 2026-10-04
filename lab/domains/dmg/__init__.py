@@ -85,38 +85,42 @@ def refine(store: Store, runs: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 # -- board -----------------------------------------------------------------------
-legend = {"patient": "patient", "trial": "trial", "call": "Haiku call"}
+legend = {"patient": "patient", "trial": "trial", "full": "uncached", "write": "cache write", "read": "cache read", "prewarm": "pre-warm"}
 
 
 def point_kind(p: dict[str, Any]) -> str:
-    return "call" if "usage" in p else "trial" if "nct" in p else "patient"
+    if "usage" not in p:
+        return "trial" if "nct" in p else "patient"
+    u = p["usage"]
+    return "prewarm" if p.get("prewarm") else "read" if u["cache_read_input_tokens"] else "write" if u["cache_creation_input_tokens"] else "full"
 
 
 def glyph(p: dict[str, Any]) -> str:
-    return {"patient": "·", "trial": "▫", "call": "◆"}[point_kind(p)]
+    return {"patient": "·", "trial": "▫", "full": "●", "write": "▲", "read": "○", "prewarm": "△"}[point_kind(p)]
 
 
-token_legend = {"uncached": "input", "read": "cache read", "output": "output"}
+token_legend = {"uncached": "uncached input", "write": "cache write", "read": "cache read", "output": "output"}
 
 
 def tokens(u: dict[str, Any]) -> dict[str, int]:
     if not u:
         return {}
-    return {"uncached": u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0),
+    return {"uncached": u.get("input_tokens", 0), "write": u.get("cache_creation_input_tokens", 0),
             "read": u.get("cache_read_input_tokens", 0), "output": u.get("output_tokens", 0)}
 
 
-arm_labels = {"llm": "Haiku (trial labels)", "patients": "patients"}
+arm_labels = {"llm": "Haiku fan-out", "patients": "patients"}
 outcome_labels = {**AXIS_LABELS, "tie": "no clear winner"}
 check_labels = {"intervention_ran": "Patients are H3K27M; Haiku's trial labels agree with a drug dictionary",
+                "cache_used": "Fan-out read the shared prefix from cache",
                 "controls": "Enough unique patients from the right cohorts",
                 "no_leakage": "Inputs as specified, predictions registered first",
                 "claims_match_raw": "Prevalence, trial counts and winner recomputed from raw"}
 point_labels = {"alt": "altered in this pathway", "wt": "not altered"}
 point_colors = {"alt": "var(--accent)", "wt": "var(--grid)"}
 board_text = {"win_tag": "biggest gap", "result": "Biggest gap:", "detail_title": "result", "square": "one square = one patient",
-              "kpi_tokens": "Haiku tokens", "kpi_cost": "Haiku cost", "kpi_cost_sub": "real API, labels used here (reruns are cached)",
-              "tokens_sub": "Haiku tokens per run", "time_runner": "runner (data + Haiku)"}
+              "kpi_tokens": "Haiku tokens", "kpi_cost": "Haiku cost", "kpi_cost_sub": "real API, all fan-outs in this study",
+              "tokens_sub": "Haiku fan-out tokens per run", "time_runner": "runner (data + Haiku fan-out)"}
 
 
 def arm_view(store: Store, r: dict[str, Any]) -> dict[str, Any]:
@@ -133,18 +137,15 @@ def arm_view(store: Store, r: dict[str, Any]) -> dict[str, Any]:
             "trials": g["matched"], "file": r["raw"]["patients"], "winner": axis == r["winner"],
         })
     win = AXIS_LABELS[r["winner"]]
+    f = r["fanout"]
+    saved = 1 - f["usd"] / f["usd_if_uncached"] if f["usd_if_uncached"] else 0
     lead = (f"{len(pts)} H3K27M patients vs {len(trials)} trials ({describe(params)}). Biggest gap: <b>{win}</b>"
-            + (" (no clear winner: runner-up within 10%)" if r["outcome"] == "tie" else "") + ". Bar = gap = prevalence ÷ (1 + matched trials).")
+            + (" (no clear winner: runner-up within 10%)" if r["outcome"] == "tie" else "") + ". Bar = gap = prevalence ÷ (1 + matched trials).<br>"
+            f"Fan-out: <b>{f['subagents']} Haiku sub-agents</b> over one {f['prefix_chars'] // 1000}K-char prefix · {f['writes']} cache write(s), "
+            f"{f['readers']} read(s) · <b>${f['usd']:.4f}</b> vs ${f['usd_if_uncached']:.4f} uncached ({saved:.0%} saved).")
     return {"arms": arms, "winner": win, "saving": None, "lead": lead, "ran_label": f"{len(pts)} patients · {len(trials)} trials",
             "sentence": f"Counted {len(pts)} patients and labelled {len(trials)} trials → biggest gap: {win}"}
 
 
 def spent_usd(store: Store) -> float:
-    """What the Haiku labels used by this study cost to produce (each call once, cached or not)."""
-    from cachew.pricing import cost_usd
-
-    calls = {}
-    for r in store.all("R"):
-        for c in store.raw(r["raw"]["llm"])["points"]:
-            calls[tuple(c["trials"])] = c["usage"]
-    return round(sum(cost_usd(u, llm.MODEL) for u in calls.values()), 6)
+    return round(sum(r.get("llm_usd", 0) for r in store.all("R")), 6)
