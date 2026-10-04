@@ -156,3 +156,32 @@ Design: [docs/research-loop.md](docs/research-loop.md). Studies:
 ```bash
 .venv/Scripts/python.exe -m lab --study studies/003-my-run
 ```
+
+## Cachew Studio (`lab/studio/`)
+
+A web UI that starts a research run and shows the team while it works. Each
+run is an Omnigent session. A PI agent plans the work and fans it out, through
+`sys_session_send`, to scouts, theorists, a lead theorist, an experimenter,
+skeptics and a judge. Every agent runs on the **cachew harness**, an Omnigent
+community harness plugin in [plugin/](plugin/). Its model calls go through
+Omnigent's `AnthropicAdapter` with the Cachew patch, so nothing reaches
+Anthropic any other way.
+
+Before each fan-out, the PI publishes a knowledge brief and pre-warms it with
+one call (`cachew.patch.prewarm`). Every sub-agent then reads that brief from
+the cache. The UI shows:
+
+- what this saved: real spend against the same calls with no cache, net of the
+  pre-warm calls;
+- one write and N reads per brief;
+- whether the members' system prefixes were byte-identical.
+
+```bash
+uv pip install --python .venv/Scripts/python.exe -e plugin   # registers the cachew harness with Omnigent
+.venv/Scripts/python.exe -m lab.studio                         # http://127.0.0.1:8787 (builds the UI with bun on first start)
+```
+
+The UI is built with [bun](https://bun.sh) (`cd lab/studio/web && bun install && bun run build`).
+Runs are written to `studies/` (git-ignored). On Windows the studio starts
+Omnigent with `PYTHONUTF8=1`, because Omnigent's host daemon otherwise crashes
+on non-ASCII console output.

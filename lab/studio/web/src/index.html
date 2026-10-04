@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cachew Studio</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="18" cy="16" r="3" fill="var(--accent)"/></svg>
+      <span>Cachew Studio</span>
+      <small>research teams on Omnigent · fan-outs on one shared cache</small>
+    </div>
+    <div class="top-right">
+      <span id="omnigent-link"></span>
+      <button id="toggle-theme" class="ghost" title="Toggle light/dark">◐</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="side">
+      <form id="new-run" class="card">
+        <h2>New research</h2>
+        <label>Research question
+          <textarea name="question" rows="4" required minlength="10" placeholder="What do you want the team to find out? State the question and what a good answer would look like."></textarea>
+        </label>
+        <label>Context <span class="muted">(optional: notes, data, papers; shared by every agent)</span>
+          <textarea name="context" rows="4" placeholder="Paste background material, or attach text files below."></textarea>
+        </label>
+        <div class="attach">
+          <input type="file" id="files" multiple accept=".txt,.md,.csv,.json,.tsv,.py,.tex">
+          <span id="files-note" class="muted"></span>
+        </div>
+        <div class="row">
+          <label>Model <select name="model" id="model"></select></label>
+          <label>Effort <select name="effort" id="effort"></select></label>
+        </div>
+        <div class="row">
+          <label>Agents per fan-out <output id="width-out">3</output>
+            <input type="range" name="width" id="width" min="1" max="6" value="3">
+          </label>
+          <label>Budget cap ($) <input type="number" name="budget_usd" value="3" min="0.1" max="50" step="0.1"></label>
+        </div>
+        <p id="estimate" class="muted small"></p>
+        <button type="submit" class="primary" id="start">Start research</button>
+        <p id="form-error" class="error" hidden></p>
+      </form>
+
+      <section class="card runs">
+        <h2>Runs</h2>
+        <ul id="runs"><li class="muted">No runs yet.</li></ul>
+      </section>
+    </aside>
+
+    <section class="content">
+      <div id="empty" class="empty">
+        <h1>Ask a research question</h1>
+        <p>A PI agent plans the work and fans it out to scouts, theorists, an experimenter, skeptics and a judge. Every one of them is an Omnigent agent.</p>
+        <p>Before each fan-out, the PI writes everything the team knows into one brief and pre-warms it in the prompt cache. The sub-agents then read the brief from cache instead of paying full input price for it.</p>
+      </div>
+
+      <div id="run" hidden>
+        <div class="run-head">
+          <div>
+            <h1 id="question"></h1>
+            <p id="phase" class="phase"></p>
+          </div>
+          <div class="run-actions">
+            <span id="status" class="pill"></span>
+            <button id="stop" class="ghost" hidden>Stop</button>
+          </div>
+        </div>
+
+        <section class="savings card" id="savings"></section>
+
+        <section class="graph-card card">
+          <div class="graph-head">
+            <h2>Team</h2>
+            <div class="legend">
+              <span><i class="dot idle"></i>idle</span>
+              <span><i class="dot thinking"></i>thinking</span>
+              <span><i class="dot done"></i>done</span>
+              <span><i class="dot error"></i>error</span>
+              <span><i class="bar"></i>input read from cache</span>
+            </div>
+          </div>
+          <div class="canvas-wrap" id="canvas-wrap"><div id="canvas"></div></div>
+        </section>
+
+        <section class="card">
+          <h2>Fan-outs and the shared cache</h2>
+          <div id="stages"></div>
+        </section>
+
+        <section class="card" id="verdict-card" hidden>
+          <h2>Verdict</h2>
+          <div id="verdict" class="md"></div>
+        </section>
+      </div>
+    </section>
+
+    <aside class="inspector" id="inspector" hidden>
+      <div class="insp-head">
+        <h2 id="insp-title"></h2>
+        <button class="ghost" id="insp-close" aria-label="Close">✕</button>
+      </div>
+      <div id="insp-body"></div>
+    </aside>
+  </main>
+  <script type="module" src="/assets/main.js"></script>
+</body>
+</html>

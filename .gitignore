@@ -45,3 +45,16 @@ desktop.ini
 
 # Research loop output (regenerate with: python -m lab --study studies/<name>)
 studies/*/
+
+# Research topics are local: each topic's code, sources and findings stay out of git
+topics/*
+!topics/README.md
+
+# Research artifacts must never be committed (see CLAUDE.md)
+*.safetensors
+*.pt
+*.pth.tar
+*.ckpt
+*.gguf
+*.bin
+compressed/
