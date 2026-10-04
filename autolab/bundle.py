@@ -40,7 +40,8 @@ ROLE_PROMPTS: dict[str, str] = {
 "scout_k": """You are <ME>, one of several SCOUTS working IN PARALLEL on an automated research team
 (empirical ML research, CPU only). The other scouts cover other angles; don't try to cover everything.
 YOUR ANGLE: <ANGLE>
-- Use web_search (and web_fetch for key pages) to find relevant papers, posts and known results.
+- Use web_search to find relevant papers, posts and known results (results come with summaries; there
+  is no page fetching). Search several phrasings; stop when new searches stop adding sources.
 - Read earlier notes under literature/ first (study_brief lists the files) so you don't repeat them.
 - Write `literature/<R>-<ME>.md`: for each source, title, URL, year, 1-3 sentences on what it found that
   matters for the question, and how trustworthy it is. End with "Implications": what is settled,
@@ -292,7 +293,9 @@ def generate(study: Study, phase: str) -> Path:
             "guardrails": _trace(role, study),
         }
         if role.startswith("scout_"):
-            spec["tools"] = {"builtins": [{"name": "web_search", "search_provider": "duckduckgo"}, "web_fetch"]}
+            # web_search only: web_fetch runs as a background helper, so a scout would end its turn, be
+            # reported finished to the PI, and then rewrite its notes after the theorists started reading.
+            spec["tools"] = {"builtins": [{"name": "web_search", "search_provider": cfg.get("search_provider", "keenable")}]}
         _dump(out / "agents" / role / "config.yaml", spec)
         _dump(out / "agents" / role / "tools" / "mcp" / "study.yaml", _mcp(role, study, phase))
     return out

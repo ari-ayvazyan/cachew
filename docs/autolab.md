@@ -72,7 +72,7 @@ twice; the copy logged under `pi` is dropped by matching payload and session usa
 | Role (Omnigent agent) | Writes | Extra tools | Phase |
 |---|---|---|---|
 | `pi` (root, orchestrator) | `selection.json`, `pi_notes.md` | dispatches sub-agents | both |
-| `scout_1..N`, one angle each (prior results, methods, counter-evidence, theory) | `literature/RNN-scout_k.md` | `web_search`, `web_fetch` | plan |
+| `scout_1..N`, one angle each (prior results, methods, counter-evidence, theory) | `literature/RNN-scout_k.md` | `web_search` (keenable; `search_provider` in study.json) | plan |
 | `theorist_1..N`, one angle each (mechanism, null and confounds, literature, boundary conditions) | `proposals/theorist_k.json` | — | plan |
 | `theorist` (lead) | `candidates.json` (merged proposals), `predictions.json` | — | plan |
 | `experimenter` | `plan.md`, `experiment/*` | `check_syntax` (compile only) | plan |
@@ -124,6 +124,8 @@ Omnigent limits found while building this:
 - Haiku 4.5 looped on deferred-tool discovery as the orchestrator; use Sonnet 5.5 or larger.
 - Sub-agents' `tools/python/*.py` local tools are refused at dispatch in 0.16.0, so the study tools are stdio MCP servers instead.
 - A headless `omni run` follows a session for at most 30 minutes, so experiments run in the driver and not inside an agent.
+- `web_fetch` runs as a background helper agent: the calling agent ends its turn, is reported finished, and resumes later. Scouts therefore only get `web_search`.
+- The `duckduckgo` search backend returned a bot challenge from this machine (every query: "No results found."), so scouts use `keenable`.
 
 ## Files
 

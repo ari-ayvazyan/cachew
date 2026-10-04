@@ -95,6 +95,8 @@ class TestDoor(Base):
             spec = yaml.safe_load(cfg.read_text())
             self.assertNotIn("os_env", spec, cfg)
             self.assertEqual(spec["skills"], "none")
+        scout = yaml.safe_load((b / "agents" / "scout_1" / "config.yaml").read_text())
+        self.assertEqual(scout["tools"]["builtins"], [{"name": "web_search", "search_provider": "keenable"}])
         mcp = yaml.safe_load((b / "agents" / "skeptic_2" / "tools" / "mcp" / "study.yaml").read_text())
         self.assertEqual(mcp["env"]["AUTOLAB_ROLE"], "skeptic_2")
         self.assertEqual(sorted(p.name for p in (b / "agents").iterdir()), sorted(roles.team({})))

@@ -55,6 +55,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_rounds": 10,
     "fanout": {"scout": 3, "theorist": 3, "skeptic": 3},  # parallel instances per role
     "hardware": "CPU only, no GPU",
+    "search_provider": "keenable",  # Omnigent web_search backend for scouts (duckduckgo gets bot-blocked)
 }
 
 
