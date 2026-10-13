@@ -1,4 +1,5 @@
 # Cachew: a token-saving research agent
+<img width="821" height="884" alt="image" src="https://github.com/user-attachments/assets/a39b3efd-60a1-439d-a929-1cc6ecaede8c" />
 
 Cachew makes multi-agent research cheap: it researches once and briefs every
 sub-agent from the same cached copy.
